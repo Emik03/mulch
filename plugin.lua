@@ -62,8 +62,8 @@ end
 -- Finds the adjacent notes of a set of notes
 -- Returns a tuple of a previous [Float] and next [Float] note 
 -- Parameters
---     sv    : The list of SVs
---     notes : The list of notes
+--     sv    : the list of SVs
+--     notes : the list of notes
 function findAdjacentNotes(sv, notes)
     local p = notes[1]
 
@@ -80,8 +80,8 @@ end
 
 -- Applies the linear tween per selected region
 -- Parameters
---     from : The starting value multiplier [Float]
---     to   : The ending value multiplier [Float]
+--     from : the starting value multiplier [Float]
+--     to   : the ending value multiplier [Float]
 function perSection(from, to)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
@@ -101,8 +101,8 @@ end
 
 -- Applies the linear tween per note
 -- Parameters
---     from : The starting value multiplier [Float]
---     to   : The ending value multiplier [Float]
+--     from : the starting value multiplier [Float]
+--     to   : the ending value multiplier [Float]
 function perNote(from, to)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
@@ -132,12 +132,12 @@ function draw()
     local to = get("to", 0)
     _, to = imgui.InputFloat("to", to)
     state.SetValue("to", to)
-    
-    if imgui.Button("per section") or utils.IsKeyDown(keys.Y) then
+
+    if imgui.Button("per section") or utils.IsKeyPressed(keys.Y) then
         perSection(from, to)
     end
 
-    if imgui.Button("per note") or utils.IsKeyDown(keys.U) then
+    if imgui.Button("per note") or utils.IsKeyPressed(keys.U) then
         perNote(from, to)
     end
 
