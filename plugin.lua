@@ -60,7 +60,7 @@ function getSVsBetweenOffsets(startOffset, endOffset)
 end
 
 -- Finds the adjacent notes of a set of notes
--- Returns a tuple of a previous [Float] and next [Float] note 
+-- Returns a tuple of a previous [Float] and next [Float] note
 -- Parameters
 --     sv    : the list of SVs
 --     notes : the list of notes
@@ -68,11 +68,11 @@ function findAdjacentNotes(sv, notes)
     local p = notes[1]
 
     for _, n in pairs(notes) do
-    	if n > sv.StartTime then
-    	   return p, n
-    	end
+        if n > sv.StartTime then
+            return p, n
+        end
 
-    	p = n
+        p = n
     end
 
     return p, p
@@ -90,7 +90,7 @@ function perSection(from, to)
     for key, sv in pairs(svs) do
         local f = (sv.StartTime - svs[1].StartTime) / (svs[#svs].StartTime - svs[1].StartTime)
         local fm = from * (1 - f) + to * f
-	    table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, sv.Multiplier * fm))
+        table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, sv.Multiplier * fm))
     end
 
     actions.PerformBatch({
@@ -108,11 +108,11 @@ function perNote(from, to)
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
     local svsToAdd = {}
 
-    for key, sv in pairs(svs) do
+    for _, sv in pairs(svs) do
         local b, e = findAdjacentNotes(sv, offsets)
         local f = (sv.StartTime - b) / (e - b)
         local fm = from * (1 - f) + to * f
-    	table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, sv.Multiplier * fm))
+        table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, sv.Multiplier * fm))
     end
 
     actions.PerformBatch({
@@ -133,14 +133,23 @@ function draw()
     _, to = imgui.InputFloat("to", to)
     state.SetValue("to", to)
 
-    if imgui.Button("per section") or utils.IsKeyPressed(keys.Y) then
-        perSection(from, to)
-    end
-
-    if imgui.Button("per note") or utils.IsKeyPressed(keys.U) then
-        perNote(from, to)
-    end
+    ActionButton("per section", "Y", perSection, { from, to })
+    ActionButton("per note", "U", perNote, { from, to })
+    -- from, to = Button("swap", "I", swap, { from, to })
 
     imgui.End()
 end
 
+function ActionButton(label, key, fn, tbl)
+    if (imgui.Button(label) or utils.IsKeyPressed(keys[key])) then
+        fn(tbl[1], tbl[2])
+    end
+end
+
+function swap(v1, v2)
+    local temp = v1
+    v1 = v2
+    v2 = temp
+
+    return table.unpack({ v1, v2 })
+end
