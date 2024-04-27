@@ -126,16 +126,19 @@ function draw()
     imgui.Begin("mul")
 
     local from = get("from", 0)
-    _, from = imgui.InputFloat("from", from)
-    state.SetValue("from", from)
-
     local to = get("to", 0)
+
+    _, from = imgui.InputFloat("from", from)
     _, to = imgui.InputFloat("to", to)
-    state.SetValue("to", to)
 
     ActionButton("per section", "Y", perSection, { from, to })
     ActionButton("per note", "U", perNote, { from, to })
-    -- from, to = Button("swap", "I", swap, { from, to })
+    if (imgui.Button("swap")) or utils.IsKeyPressed(keys.I) then
+        from, to = swap(from, to)
+    end
+
+    state.SetValue("from", from)
+    state.SetValue("to", to)
 
     imgui.End()
 end
