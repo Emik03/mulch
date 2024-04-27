@@ -46,7 +46,7 @@ end
 --- Returns a chronologically ordered list of SVs between two offsets/times
 ---@param startOffset number
 ---@param endOffset number
----@return ScrolVelocityInfo[]
+---@return ScrollVelocityInfo[]
 function getSVsBetweenOffsets(startOffset, endOffset)
     local svsBetweenOffsets = {}
     for _, sv in ipairs(map.ScrollVelocities) do
@@ -126,11 +126,12 @@ function draw()
     _, from = imgui.InputFloat("from", from)
     _, to = imgui.InputFloat("to", to)
 
-    ActionButton("per section", "Y", perSection, { from, to })
-    ActionButton("per note", "U", perNote, { from, to })
+    ActionButton("per section", "Y", perSection, { from, to }, "Also press Y to perform this action.")
+    ActionButton("per note", "U", perNote, { from, to }, "Also press U to perform this action.")
     if (imgui.Button("swap")) or utils.IsKeyPressed(keys.I) then
         from, to = swap(from, to)
     end
+    Tooltip("Also press I to perform this action.")
 
     state.SetValue("from", from)
     state.SetValue("to", to)
@@ -143,10 +144,12 @@ end
 ---@param key string
 ---@param fn function
 ---@param tbl table
-function ActionButton(label, key, fn, tbl)
+---@param tooltip? string
+function ActionButton(label, key, fn, tbl, tooltip)
     if (imgui.Button(label) or utils.IsKeyPressed(keys[key])) then
         fn(tbl[1], tbl[2])
     end
+    Tooltip(tooltip)
 end
 
 ---Swaps two numbers.
@@ -160,4 +163,17 @@ function swap(v1, v2)
     v2 = temp
 
     return v1, v2
+end
+
+---Creates a tooltip hoverable element.
+---@param text string
+function Tooltip(text)
+    imgui.SameLine(0, 4)
+    imgui.TextDisabled("(?)")
+    if not imgui.IsItemHovered() then return end
+    imgui.BeginTooltip()
+    imgui.PushTextWrapPos(imgui.GetFontSize() * 20)
+    imgui.Text(text)
+    imgui.PopTextWrapPos()
+    imgui.EndTooltip()
 end
