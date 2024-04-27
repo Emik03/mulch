@@ -1,27 +1,25 @@
--- Gets a value from the current state
--- Parameters
---    identifier   : The key [String]
---    defaultValue : The fallback [Any]
+---@class HitObjectInfo
+---@field StartTime number
+---@field Lane 1|2|3|4|5|6|7|8
+---@field EndTime number
+---@field HitSound any
+---@field EditorLayer integer
+
+---@class ScrollVelocityInfo
+---@field StartTime number
+---@field Multiplier number
+
+---Gets a value from the current state.
+---@param identifier string
+---@param defaultValue any
+---@return any
 function get(identifier, defaultValue)
     return state.GetValue(identifier) or defaultValue
 end
 
--- Sorting function for numbers that returns whether a < b [Boolean]
--- Parameters
---    a : first number [Int/Float]
---    b : second number [Int/Float]
-function sortAscending(a, b) return a < b end
-
--- Sorting function for SVs 'a' and 'b' that returns whether a.StartTime < b.StartTime [Boolean]
--- Parameters
---    a : first SV
---    b : second SV
-function sortAscendingStartTime(a, b) return a.StartTime < b.StartTime end
-
--- Combs through a list and locates unique values
--- Returns a list of only unique values (no duplicates) [Table]
--- Parameters
---    list : list of values [Table]
+---Removes duplicates from a table.
+---@param list table
+---@return table
 function removeDuplicateValues(list)
     local hash = {}
     local newList = {}
@@ -34,36 +32,35 @@ function removeDuplicateValues(list)
     return newList
 end
 
--- Finds unique offsets of all notes currently selected in the editor
--- Returns a list of unique offsets (in increasing order) of selected notes [Table]
+---Returns a list of unique offsets (in increasing order) of selected notes [Table]
+---@return number[]
 function uniqueSelectedNoteOffsets()
     local offsets = {}
-    for i, hitObject in pairs(state.SelectedHitObjects) do
+    for i, hitObject in ipairs(state.SelectedHitObjects) do
         offsets[i] = hitObject.StartTime
     end
     offsets = removeDuplicateValues(offsets)
-    offsets = table.sort(offsets, sortAscending)
     return offsets
 end
 
--- Returns an chronologically ordered list of SVs between two offsets/times [Table]
--- Parameters
---    startOffset : start time in milliseconds [Int/Float]
---    endOffset   : end time in milliseconds [Int/Float]
+--- Returns a chronologically ordered list of SVs between two offsets/times
+---@param startOffset number
+---@param endOffset number
+---@return ScrolVelocityInfo[]
 function getSVsBetweenOffsets(startOffset, endOffset)
     local svsBetweenOffsets = {}
-    for _, sv in pairs(map.ScrollVelocities) do
+    for _, sv in ipairs(map.ScrollVelocities) do
         local svIsInRange = sv.StartTime >= startOffset and sv.StartTime < endOffset
         if svIsInRange then table.insert(svsBetweenOffsets, sv) end
     end
-    return table.sort(svsBetweenOffsets, sortAscendingStartTime)
+    return svsBetweenOffsets
 end
 
--- Finds the adjacent notes of a set of notes
--- Returns a tuple of a previous [Float] and next [Float] note
--- Parameters
---     sv    : the list of SVs
---     notes : the list of notes
+---Finds the closest note to a scroll velocity point.
+---@param sv ScrollVelocityInfo
+---@param notes HitObjectInfo
+---@return HitObjectInfo
+---@return HitObjectInfo
 function findAdjacentNotes(sv, notes)
     local p = notes[1]
 
@@ -78,16 +75,15 @@ function findAdjacentNotes(sv, notes)
     return p, p
 end
 
--- Applies the linear tween per selected region
--- Parameters
---     from : the starting value multiplier [Float]
---     to   : the ending value multiplier [Float]
+--- Applies the linear tween per selected region
+--- @param from number
+--- @param to number
 function perSection(from, to)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
     local svsToAdd = {}
 
-    for key, sv in pairs(svs) do
+    for _, sv in pairs(svs) do
         local f = (sv.StartTime - svs[1].StartTime) / (svs[#svs].StartTime - svs[1].StartTime)
         local fm = from * (1 - f) + to * f
         table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, sv.Multiplier * fm))
@@ -99,10 +95,9 @@ function perSection(from, to)
     })
 end
 
--- Applies the linear tween per note
--- Parameters
---     from : the starting value multiplier [Float]
---     to   : the ending value multiplier [Float]
+---Applies the linear tween per note
+---@param from number
+---@param to number
 function perNote(from, to)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
@@ -143,16 +138,26 @@ function draw()
     imgui.End()
 end
 
+---Creates a button that runs a function using `from` and `to`.
+---@param label string
+---@param key string
+---@param fn function
+---@param tbl table
 function ActionButton(label, key, fn, tbl)
     if (imgui.Button(label) or utils.IsKeyPressed(keys[key])) then
         fn(tbl[1], tbl[2])
     end
 end
 
+---Swaps two numbers.
+---@param v1 number
+---@param v2 number
+---@return number
+---@return number
 function swap(v1, v2)
     local temp = v1
     v1 = v2
     v2 = temp
 
-    return table.unpack({ v1, v2 })
+    return v1, v2
 end
