@@ -140,6 +140,11 @@ function perSV(from, to, count)
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
     local svsToAdd = {}
 
+    if not svs[2] then
+        print("Your selected region must contain at least 2 SV points for this action to work.")
+        return
+    end
+
     for i, sv in ipairs(svs) do
         local n = svs[i + 1]
 
