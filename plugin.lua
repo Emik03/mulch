@@ -23,12 +23,14 @@ end
 function removeDuplicateValues(list)
     local hash = {}
     local newList = {}
+
     for _, value in ipairs(list) do
-        if (not hash[value]) then
+        if not hash[value] then
             newList[#newList + 1] = value
             hash[value] = true
         end
     end
+
     return newList
 end
 
@@ -36,9 +38,11 @@ end
 ---@return number[]
 function uniqueSelectedNoteOffsets()
     local offsets = {}
+
     for i, hitObject in ipairs(state.SelectedHitObjects) do
         offsets[i] = hitObject.StartTime
     end
+
     offsets = removeDuplicateValues(offsets)
     return offsets
 end
@@ -49,10 +53,13 @@ end
 ---@return ScrollVelocityInfo[]
 function getSVsBetweenOffsets(startOffset, endOffset)
     local svsBetweenOffsets = {}
+
     for _, sv in ipairs(map.ScrollVelocities) do
-        local svIsInRange = sv.StartTime >= startOffset and sv.StartTime < endOffset
-        if svIsInRange then table.insert(svsBetweenOffsets, sv) end
+        if sv.StartTime >= startOffset and sv.StartTime < endOffset then
+            table.insert(svsBetweenOffsets, sv)
+        end
     end
+
     return svsBetweenOffsets
 end
 
@@ -119,23 +126,20 @@ end
 -- The main function
 function draw()
     imgui.Begin("mul")
-
     local from = get("from", 0)
     local to = get("to", 0)
-
     _, from = imgui.InputFloat("from", from)
     _, to = imgui.InputFloat("to", to)
-
     ActionButton("per section", "Y", perSection, { from, to }, "Also press Y to perform this action.")
     ActionButton("per note", "U", perNote, { from, to }, "Also press U to perform this action.")
+
     if (imgui.Button("swap")) or utils.IsKeyPressed(keys.I) then
         from, to = swap(from, to)
     end
-    Tooltip("Also press I to perform this action.")
 
+    Tooltip("Also press I to perform this action.")
     state.SetValue("from", from)
     state.SetValue("to", to)
-
     imgui.End()
 end
 
@@ -146,9 +150,10 @@ end
 ---@param tbl table
 ---@param tooltip? string
 function ActionButton(label, key, fn, tbl, tooltip)
-    if (imgui.Button(label) or utils.IsKeyPressed(keys[key])) then
+    if imgui.Button(label) or utils.IsKeyPressed(keys[key]) then
         fn(tbl[1], tbl[2])
     end
+
     Tooltip(tooltip)
 end
 
@@ -170,10 +175,14 @@ end
 function Tooltip(text)
     imgui.SameLine(0, 4)
     imgui.TextDisabled("(?)")
-    if not imgui.IsItemHovered() then return end
+
+    if not imgui.IsItemHovered() then
+        return end
+
     imgui.BeginTooltip()
     imgui.PushTextWrapPos(imgui.GetFontSize() * 20)
     imgui.Text(text)
     imgui.PopTextWrapPos()
     imgui.EndTooltip()
 end
+
