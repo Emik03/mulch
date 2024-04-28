@@ -133,7 +133,7 @@ function draw()
     ActionButton("per section", "Y", perSection, { from, to }, "Also press Y to perform this action.")
     ActionButton("per note", "U", perNote, { from, to }, "Also press U to perform this action.")
 
-    if (imgui.Button("swap")) or utils.IsKeyPressed(keys.I) then
+    if imgui.Button("swap") or utils.IsKeyPressed(keys.I) then
         from, to = swap(from, to)
     end
 
