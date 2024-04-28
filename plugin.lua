@@ -165,7 +165,7 @@ end
 function draw()
     imgui.Begin("mul")
     local from = get("from", 0)
-    local to = get("to", 0)
+    local to = get("to", 1)
     local count = get("count", 16)
 
     _, from = imgui.InputFloat("from", from)
@@ -174,16 +174,16 @@ function draw()
     count = clamp(count, 1, 10000)
     Tooltip("This parameter only applies to 'per sv'.")
 
-    if imgui.Button("swap") or utils.IsKeyPressed(keys.P) then
+    if imgui.Button("swap") or utils.IsKeyPressed(keys.U) then
         from, to = to, from
     end
 
-    Tooltip("Also press P to perform this action.")
+    Tooltip("Alternatively, press U to perform this action.")
     imgui.SameLine(0, 4)
-    ActionButton("per section", "U", perSection, { from, to })
-    ActionButton("per note", "I", perNote, { from, to })
+    ActionButton("per section", "I", perSection, { from, to })
+    ActionButton("per note", "O", perNote, { from, to })
     imgui.SameLine(0, 4)
-    ActionButton("per sv", "I", perSV, { from, to, count })
+    ActionButton("per sv", "P", perSV, { from, to, count })
     state.SetValue("from", from)
     state.SetValue("to", to)
     state.SetValue("count", count)
