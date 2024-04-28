@@ -63,6 +63,10 @@ end
 function getSVsBetweenOffsets(startOffset, endOffset)
     local svsBetweenOffsets = {}
 
+    if startOffset == nil or endOffset == nil then
+        return svsBetweenOffsets
+    end
+
     for _, sv in ipairs(map.ScrollVelocities) do
         if sv.StartTime >= startOffset and sv.StartTime < endOffset then
             table.insert(svsBetweenOffsets, sv)
@@ -99,6 +103,11 @@ function perSection(from, to)
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
     local svsToAdd = {}
 
+    if not svs[1] then
+        print("Please select the region you wish to modify before pressing this button.")
+        return
+    end
+
     for _, sv in pairs(svs) do
         local f = (sv.StartTime - svs[1].StartTime) / (svs[#svs].StartTime - svs[1].StartTime)
         local fm = from * (1 - f) + to * f
@@ -117,6 +126,12 @@ end
 function perNote(from, to)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
+
+    if not svs[1] then
+        print("Please select the region you wish to modify before pressing this button.")
+        return
+    end
+
     local svsToAdd = {}
 
     for _, sv in pairs(svs) do
