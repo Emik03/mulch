@@ -118,7 +118,8 @@ function perSV(from, to, after, count)
 
         for j = 0, count, 1 do
             local f = j / tonumber(count - 1)
-            table.insert(svsToAdd, utils.CreateScrollVelocity(tween(f, sv.StartTime, n.StartTime), afterfn(after)(sv.Multiplier * tween(f, from, to))))
+            local g = j / tonumber(count)
+            table.insert(svsToAdd, utils.CreateScrollVelocity(tween(g, sv.StartTime, n.StartTime), afterfn(after)(sv.Multiplier * tween(f, from, to))))
         end
     end
 
