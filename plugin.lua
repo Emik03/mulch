@@ -62,8 +62,8 @@ function perSection(from, to, after)
     for _, sv in pairs(svs) do
         local f = (sv.StartTime - svs[1].StartTime) / (svs[#svs].StartTime - svs[1].StartTime)
         local fm = tween(f, from, to)
-        local sv = afterfn(after)(sv.Multiplier * fm)
-        table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, sv))
+        local v = afterfn(after)(sv.Multiplier * fm)
+        table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, v))
     end
 
     actions.PerformBatch({
@@ -90,8 +90,8 @@ function perNote(from, to, after)
         local b, e = findAdjacentNotes(sv, offsets)
         local f = (sv.StartTime - b) / (e - b)
         local fm = tween(f, from, to)
-        local sv = afterfn(after)(sv.Multiplier * fm)
-        table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, sv))
+        local v = afterfn(after)(sv.Multiplier * fm)
+        table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, v))
     end
 
     actions.PerformBatch({
@@ -125,8 +125,8 @@ function perSV(from, to, after, count)
             local g = j / tonumber(count)
             local gm = tween(g, sv.StartTime, n.StartTime)
             local fm = tween(f, from, to)
-            local sv = afterfn(after)(sv.Multiplier * fm)
-            table.insert(svsToAdd, utils.CreateScrollVelocity(gm, sv))
+            local v = afterfn(after)(sv.Multiplier * fm)
+            table.insert(svsToAdd, utils.CreateScrollVelocity(gm, v))
         end
     end
 
