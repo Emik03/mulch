@@ -17,7 +17,7 @@ function draw()
     local from = get("from", 0)
     local to = get("to", 1)
     local count = get("count", 16)
-    local after = get("after", 1)
+    local after = get("after", 0)
 
     _, from = imgui.InputFloat("from", from)
     Tooltip("The SV value to multiply by at the start of a group.")
@@ -201,7 +201,13 @@ end
 --- @param after number
 --- @return function
 function afterfn(after)
-    if after then
+    local name = afters[after + 1]
+
+    if name == "random" then
+        return random
+    end
+
+    if name then
         return math[afters[after + 1]]
     end
 
@@ -238,6 +244,13 @@ end
 --- @return any
 function get(identifier, defaultValue)
     return state.GetValue(identifier) or defaultValue
+end
+
+--- Generates a random number starting or ending the number, depending on its sign.
+--- @param x number
+--- @return number
+function random(x)
+    return math.random() * x
 end
 
 --- Returns the argument.
