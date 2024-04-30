@@ -9,7 +9,7 @@
 --- @field StartTime number
 --- @field Multiplier number
 
-local afters = { "none", "abs", "acos", "asin", "atan", "ceil", "cos", "deg", "exp", "floor", "frac", "int", "log", "modf", "rad", "random", "sin", "sqrt", "tan" }
+local afters = { "none", "abs", "acos", "asin", "atan", "ceil", "cos", "deg", "exp", "floor", "frac", "int", "log", "max", "min", "modf", "rad", "random", "sin", "sqrt", "tan" }
 local types = { "linear", "quad", "cubic", "quart", "quint", "sine", "expo", "circ", "elastic", "back", "bounce" }
 local directions = { "in", "out", "inOut", "outIn" }
 
@@ -26,6 +26,7 @@ function draw()
     local amp = get("amp", 1)
     local period = get("period", 1)
     local after = get("after", 0)
+    local by = get("by", math.exp(1))
     local add = get("add", false)
 
     if imgui.Button("swap") or utils.IsKeyPressed(keys.U) then
@@ -60,29 +61,33 @@ function draw()
     Tooltip("The number of SVs to place between selected SVs. This parameter only applies to 'per sv'.")
     count = clamp(count, 1, 10000)
 
+    Separator()
+
     _, after = imgui.Combo("after", after, afters, #afters)
     Tooltip("The mathematical operation to apply to every result of a tween calculation before SV placement.")
+
+    if ({ atan = true, log = true, min = true, max = true })[afters[after + 1]] then
+        _, by = imgui.InputFloat("by", by)
+    end
 
     Separator()
 
     _, add = imgui.Checkbox("add instead", add)
     Tooltip("Determines whether to add to existing SV amounts, instead of multiplying them.")
 
-    imgui.SameLine(0, 4)
+    Separator()
 
     local ease = fulleasename(type, amp)
 
-    Separator()
-
-    ActionButton("section", "I", section, { from, to, add, after, ease }, "'from' is applied from the start of the selection.\n'to' is applied to the end of the selection.")
+    ActionButton("section", "I", section, { from, to, add, after, by, ease }, "'from' is applied from the start of the selection.\n'to' is applied to the end of the selection.")
 
     imgui.SameLine(0, 4)
 
-    ActionButton("per note", "O", perNote, { from, to, add, after, ease }, "'from' is applied from the selected note.\n'to' is applied just before next selected note.")
+    ActionButton("per note", "O", perNote, { from, to, add, after, by, ease }, "'from' is applied from the selected note.\n'to' is applied just before next selected note.")
 
     imgui.SameLine(0, 4)
 
-    ActionButton("per sv", "P", perSV, { from, to, add, after, ease, count }, "Smear tool, adds SVs in-between existing SVs. 'from' and 'to' function identically to 'section'.")
+    ActionButton("per sv", "P", perSV, { from, to, add, after, by, ease, count }, "Smear tool, adds SVs in-between existing SVs. 'from' and 'to' function identically to 'section'.")
 
     state.SetValue("from", from)
     state.SetValue("to", to)
@@ -92,6 +97,7 @@ function draw()
     state.SetValue("amp", amp)
     state.SetValue("period", period)
     state.SetValue("after", after)
+    state.SetValue("by", by)
     state.SetValue("add", add)
 
     imgui.End()
@@ -100,7 +106,7 @@ end
 --- Applies the tween over the entire selected region.
 --- @param from number
 --- @param to number
-function section(from, to, add, after, ease)
+function section(from, to, add, after, by, ease)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
 
@@ -115,7 +121,7 @@ function section(from, to, add, after, ease)
         local f = (sv.StartTime - svs[1].StartTime) / (svs[#svs].StartTime - svs[1].StartTime)
         local fm = tween(f, from, to, ease)
         local a = addormul(sv.Multiplier, fm, add)
-        local v = afterfn(after)(a)
+        local v = afterfn(after, by)(a)
         table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, v))
     end
 
@@ -128,7 +134,7 @@ end
 --- Applies the tween over each note selected.
 --- @param from number
 --- @param to number
-function perNote(from, to, add, after, ease)
+function perNote(from, to, add, after, by, ease)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
 
@@ -144,7 +150,7 @@ function perNote(from, to, add, after, ease)
         local f = (sv.StartTime - b) / (e - b)
         local fm = tween(f, from, to, ease)
         local a = addormul(sv.Multiplier, fm, add)
-        local v = afterfn(after)(a)
+        local v = afterfn(after, by)(a)
         table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, v))
     end
 
@@ -157,7 +163,7 @@ end
 ---Applies the tween over each SV selected.
 ---@param from number
 ---@param to number
-function perSV(from, to, add, after, ease, count)
+function perSV(from, to, add, after, ease, by, count)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
 
@@ -181,7 +187,7 @@ function perSV(from, to, add, after, ease, count)
             local fm = tween(f, from, to, ease)
             local gm = tween(g, sv.StartTime, n.StartTime, "linear")
             local a = addormul(sv.Multiplier, fm, add)
-            local v = afterfn(after)(a)
+            local v = afterfn(after, by)(a)
             table.insert(svsToAdd, utils.CreateScrollVelocity(gm, v))
         end
     end
@@ -266,22 +272,10 @@ end
 --- Gets the function from the corresponding index returned by Combo.
 --- @param after number
 --- @return function
-function afterfn(after)
+function afterfn(after, by)
     local name = afters[after + 1]
-
-    if name == "frac" then
-        return frac
-    end
-
-    if name == "int" then
-        return int
-    end
-
-    if name == "random" then
-        return random
-    end
-
-    return math[name] or id
+    local overrides = { atan = atan(by), frac = frac, int = int, log = log(by), max = max(by), min = min(by), none = id, random = random }
+    return overrides[name] or math[name] or error("Not implemented: " .. name)
 end
 
 -- Calculates the tween between a range.
@@ -355,12 +349,13 @@ function get(identifier, defaultValue)
     return state.GetValue(identifier) or defaultValue
 end
 
---- Gets the integral part of the number.
---- @param x number
---- @return number
-function int(x)
-    local ret, _ = math.modf(x)
-    return ret
+--- Gives the function to take the arc tangent of its argument by the argument passed in here.
+--- @param by number
+--- @return function
+function atan(by)
+    return function(x)
+        return math.atan(x, by)
+    end
 end
 
 --- Gets the fractional part of the number.
@@ -371,18 +366,53 @@ function frac(x)
     return ret
 end
 
---- Generates a random number starting or ending the number, depending on its sign.
---- @param x number
---- @return number
-function random(x)
-    return math.random() * x
-end
-
 --- Returns the argument.
 --- @param identifier any
 --- @return any
 function id(x)
     return x
+end
+
+--- Gets the integral part of the number.
+--- @param x number
+--- @return number
+function int(x)
+    local ret, _ = math.modf(x)
+    return ret
+end
+
+--- Gives the function to take the logarithm of its argument by the base of the argument passed in here.
+--- @param by number
+--- @return function
+function log(by)
+    return function(x)
+        return math.log(x, by)
+    end
+end
+
+--- Gives the function to take the max of its argument or the argument passed in here.
+--- @param by number
+--- @return function
+function max(by)
+    return function(x)
+        return math.max(x, by)
+    end
+end
+
+--- Gives the function to take the min of its argument or the argument passed in here.
+--- @param by number
+--- @return function
+function min(by)
+    return function(x)
+        return math.min(x, by)
+    end
+end
+
+--- Generates a random number starting or ending the number, depending on its sign.
+--- @param x number
+--- @return number
+function random(x)
+    return math.random() * x
 end
 
 --- Creates a button that runs a function using `from` and `to`.
