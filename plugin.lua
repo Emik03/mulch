@@ -9,7 +9,7 @@
 --- @field StartTime number
 --- @field Multiplier number
 
-local afters = { "none", "abs", "acos", "asin", "atan", "ceil", "cos", "deg", "exp", "floor", "frac", "int", "log", "max", "min", "modf", "rad", "random", "sin", "sqrt", "tan" }
+local afters = { "none", "abs", "acos", "asin", "atan", "ceil", "cos", "deg", "exp", "floor", "frac", "int", "log", "max", "min", "modf", "pow", "rad", "random", "sin", "sqrt", "tan" }
 local types = { "linear", "quad", "cubic", "quart", "quint", "sine", "expo", "circ", "elastic", "back", "bounce" }
 local directions = { "in", "out", "inOut", "outIn" }
 
@@ -66,7 +66,7 @@ function draw()
     _, after = imgui.Combo("after", after, afters, #afters)
     Tooltip("The mathematical operation to apply to every result of a tween calculation before SV placement.")
 
-    if ({ atan = true, log = true, min = true, max = true })[afters[after + 1]] then
+    if ({ atan = true, log = true, min = true, max = true, pow = true })[afters[after + 1]] then
         _, by = imgui.InputFloat("by", by)
     end
 
@@ -80,11 +80,9 @@ function draw()
     local ease = fulleasename(type, amp)
 
     ActionButton("section", "I", section, { from, to, add, after, by, ease }, "'from' is applied from the start of the selection.\n'to' is applied to the end of the selection.")
-
     imgui.SameLine(0, 4)
 
     ActionButton("per note", "O", perNote, { from, to, add, after, by, ease }, "'from' is applied from the selected note.\n'to' is applied just before next selected note.")
-
     imgui.SameLine(0, 4)
 
     ActionButton("per sv", "P", perSV, { from, to, add, after, by, ease, count }, "Smear tool, adds SVs in-between existing SVs. 'from' and 'to' function identically to 'section'.")
@@ -274,7 +272,7 @@ end
 --- @return function
 function afterfn(after, by)
     local name = afters[after + 1]
-    local overrides = { atan = atan(by), frac = frac, int = int, log = log(by), max = max(by), min = min(by), none = id, random = random }
+    local overrides = { atan = atan(by), frac = frac, int = int, log = log(by), max = max(by), min = min(by), none = id, pow = pow(by), random = random }
     return overrides[name] or math[name] or error("Not implemented: " .. name)
 end
 
@@ -405,6 +403,15 @@ end
 function min(by)
     return function(x)
         return math.min(x, by)
+    end
+end
+
+--- Gives the function to take the its argument to the power of the argument passed in here.
+--- @param by number
+--- @return function
+function pow(by)
+    return function(x)
+        return x ^ by
     end
 end
 
@@ -548,7 +555,7 @@ function easings()
 	-- c = change == ending - beginning
 	-- d = duration (total time)
 
-	local pow = math.pow
+	local pow = function(x, y) return x ^ y end
 	local sin = math.sin
 	local cos = math.cos
 	local pi = math.pi
