@@ -9,34 +9,123 @@
 --- @field StartTime number
 --- @field Multiplier number
 
---- Gets the value from the current state.
---- @param identifier string
---- @param defaultValue any
---- @return any
-function get(identifier, defaultValue)
-    return state.GetValue(identifier) or defaultValue
-end
+local afters = { "none", "abs", "acos", "asin", "atan", "ceil", "cos", "deg", "exp", "floor", "log", "modf", "rad", "random", "sin", "sqrt", "tan" }
 
--- Clamps the value between a minimum and maximum value.
--- @param value number
--- @param min number
--- @param max number
--- @return number
-function clamp(value, min, max)
-    return math.min(math.max(value, min), max)
-end
+-- The main function
+function draw()
+    imgui.Begin("mul")
+    local from = get("from", 0)
+    local to = get("to", 1)
+    local count = get("count", 16)
+    local after = get("after", 1)
 
--- Calculates the linear tween between a range.
--- @param f number
--- @param from number
--- @param to number
--- @return number
-function tween(f, from, to)
-    if from == to then
-        return from -- Lossless: This prevents slight floating point inaccuracies.
+    _, from = imgui.InputFloat("from", from)
+    Tooltip("The SV value to multiply by at the start of a group.")
+    _, to = imgui.InputFloat("to", to)
+    Tooltip("The SV value to multiply by at the end of a group.")
+    _, after = imgui.Combo("after", after, afters, #afters)
+    Tooltip("The function to apply after the tween calculation.")
+    _, count = imgui.InputInt("count", count)
+    Tooltip("This parameter only applies to 'per sv'.\nNumber of points between SVs.")
+    count = clamp(count, 1, 10000)
+
+    if imgui.Button("swap") or utils.IsKeyPressed(keys.U) then
+        from, to = to, from
     end
 
-    return from * (1 - f) + to * f
+    Tooltip("Alternatively, press U to perform this action.")
+    imgui.SameLine(0, 4)
+    ActionButton("per section", "I", perSection, { from, to, after })
+    ActionButton("per note", "O", perNote, { from, to, after })
+    imgui.SameLine(0, 4)
+    ActionButton("per sv", "P", perSV, { from, to, after, count })
+    state.SetValue("from", from)
+    state.SetValue("to", to)
+    state.SetValue("count", count)
+    state.SetValue("after", after)
+    imgui.End()
+end
+
+--- Applies the linear tween per selected region
+--- @param from number
+--- @param to number
+function perSection(from, to, after)
+    local offsets = uniqueSelectedNoteOffsets()
+    local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
+    local svsToAdd = {}
+
+    if not svs[1] then
+        print("Please select the region you wish to modify before pressing this button.")
+        return
+    end
+
+    for _, sv in pairs(svs) do
+        local f = (sv.StartTime - svs[1].StartTime) / (svs[#svs].StartTime - svs[1].StartTime)
+        table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, afterfn(after)(sv.Multiplier * tween(f, from, to))))
+    end
+
+    actions.PerformBatch({
+        utils.CreateEditorAction(action_type.RemoveScrollVelocityBatch, svs),
+        utils.CreateEditorAction(action_type.AddScrollVelocityBatch, svsToAdd)
+    })
+end
+
+--- Applies the linear tween per note
+--- @param from number
+--- @param to number
+function perNote(from, to, after)
+    local offsets = uniqueSelectedNoteOffsets()
+    local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
+
+    if not svs[1] then
+        print("Please select the region you wish to modify before pressing this button.")
+        return
+    end
+
+    local svsToAdd = {}
+
+    for _, sv in pairs(svs) do
+        local b, e = findAdjacentNotes(sv, offsets)
+        local f = (sv.StartTime - b) / (e - b)
+        table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, afterfn(after)(sv.Multiplier * tween(f, from, to))))
+    end
+
+    actions.PerformBatch({
+        utils.CreateEditorAction(action_type.RemoveScrollVelocityBatch, svs),
+        utils.CreateEditorAction(action_type.AddScrollVelocityBatch, svsToAdd)
+    })
+end
+
+---Applies the linear tween per note
+---@param from number
+---@param to number
+function perSV(from, to, after, count)
+    local offsets = uniqueSelectedNoteOffsets()
+    local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
+    local svsToAdd = {}
+
+    if not svs[2] then
+        print("Your selected region must contain at least 2 SV points for this action to work.")
+        return
+    end
+
+    for i, sv in ipairs(svs) do
+        local n = svs[i + 1]
+
+        if not n then
+            break
+        end
+
+        for j = 0, count, 1 do
+            local f = j / tonumber(count - 1)
+            table.insert(svsToAdd, utils.CreateScrollVelocity(tween(f, sv.StartTime, n.StartTime), afterfn(after)(sv.Multiplier * tween(f, from, to))))
+        end
+    end
+
+    actions.PerformBatch({
+        utils.CreateEditorAction(action_type.RemoveScrollVelocityBatch, svs),
+        utils.CreateEditorAction(action_type.AddScrollVelocityBatch, svsToAdd)
+    })
 end
 
 --- Removes duplicates from a table.
@@ -108,119 +197,54 @@ function findAdjacentNotes(sv, notes)
     return p, p
 end
 
---- Applies the linear tween per selected region
---- @param from number
---- @param to number
-function perSection(from, to)
-    local offsets = uniqueSelectedNoteOffsets()
-    local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
-    local svsToAdd = {}
-
-    if not svs[1] then
-        print("Please select the region you wish to modify before pressing this button.")
-        return
+--- Gets the function from the corresponding index returned by Combo.
+--- @param after number
+--- @return function
+function afterfn(after)
+    if after then
+        return math[afters[after + 1]]
     end
 
-    for _, sv in pairs(svs) do
-        local f = (sv.StartTime - svs[1].StartTime) / (svs[#svs].StartTime - svs[1].StartTime)
-        local fm = tween(f, from, to)
-        table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, sv.Multiplier * fm))
-    end
-
-    actions.PerformBatch({
-        utils.CreateEditorAction(action_type.RemoveScrollVelocityBatch, svs),
-        utils.CreateEditorAction(action_type.AddScrollVelocityBatch, svsToAdd)
-    })
+    return id
 end
 
---- Applies the linear tween per note
---- @param from number
---- @param to number
-function perNote(from, to)
-    local offsets = uniqueSelectedNoteOffsets()
-    local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
-
-    if not svs[1] then
-        print("Please select the region you wish to modify before pressing this button.")
-        return
+-- Calculates the linear tween between a range.
+-- @param f number
+-- @param from number
+-- @param to number
+-- @param after string
+-- @return number
+function tween(f, from, to)
+    -- Lossless path: This prevents slight floating point inaccuracies.
+    if from == to then
+        return from
     end
 
-    local svsToAdd = {}
-
-    for _, sv in pairs(svs) do
-        local b, e = findAdjacentNotes(sv, offsets)
-        local f = (sv.StartTime - b) / (e - b)
-        local fm = tween(f, from, to)
-        table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, sv.Multiplier * fm))
-    end
-
-    actions.PerformBatch({
-        utils.CreateEditorAction(action_type.RemoveScrollVelocityBatch, svs),
-        utils.CreateEditorAction(action_type.AddScrollVelocityBatch, svsToAdd)
-    })
+    return from * (1 - f) + to * f
 end
 
----Applies the linear tween per note
----@param from number
----@param to number
-function perSV(from, to, count)
-    local offsets = uniqueSelectedNoteOffsets()
-    local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
-    local svsToAdd = {}
-
-    if not svs[2] then
-        print("Your selected region must contain at least 2 SV points for this action to work.")
-        return
-    end
-
-    for i, sv in ipairs(svs) do
-        local n = svs[i + 1]
-
-        if not n then
-            break
-        end
-
-        for j = 0, count, 1 do
-            local f = j / tonumber(count - 1)
-            local fm = tween(f, from, to)
-            local gm = sv.StartTime * (1 - f) + n.StartTime * f
-            table.insert(svsToAdd, utils.CreateScrollVelocity(gm, sv.Multiplier * fm))
-        end
-    end
-
-    actions.PerformBatch({
-        utils.CreateEditorAction(action_type.RemoveScrollVelocityBatch, svs),
-        utils.CreateEditorAction(action_type.AddScrollVelocityBatch, svsToAdd)
-    })
+-- Clamps the value between a minimum and maximum value.
+-- @param value number
+-- @param min number
+-- @param max number
+-- @return number
+function clamp(value, min, max)
+    return math.min(math.max(value, min), max)
 end
 
--- The main function
-function draw()
-    imgui.Begin("mul")
-    local from = get("from", 0)
-    local to = get("to", 1)
-    local count = get("count", 16)
+--- Gets the value from the current state.
+--- @param identifier string
+--- @param defaultValue any
+--- @return any
+function get(identifier, defaultValue)
+    return state.GetValue(identifier) or defaultValue
+end
 
-    _, from = imgui.InputFloat("from", from)
-    _, to = imgui.InputFloat("to", to)
-    _, count = imgui.InputInt("count", count)
-    count = clamp(count, 1, 10000)
-    Tooltip("This parameter only applies to 'per sv'.")
-
-    if imgui.Button("swap") or utils.IsKeyPressed(keys.U) then
-        from, to = to, from
-    end
-
-    Tooltip("Alternatively, press U to perform this action.")
-    imgui.SameLine(0, 4)
-    ActionButton("per section", "I", perSection, { from, to })
-    ActionButton("per note", "O", perNote, { from, to })
-    imgui.SameLine(0, 4)
-    ActionButton("per sv", "P", perSV, { from, to, count })
-    state.SetValue("from", from)
-    state.SetValue("to", to)
-    state.SetValue("count", count)
-    imgui.End()
+--- Returns the argument.
+--- @param identifier any
+--- @return any
+function id(x)
+    return x
 end
 
 --- Creates a button that runs a function using `from` and `to`.
@@ -252,4 +276,3 @@ function Tooltip(text)
     imgui.PopTextWrapPos()
     imgui.EndTooltip()
 end
-
