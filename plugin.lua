@@ -9,7 +9,7 @@
 --- @field StartTime number
 --- @field Multiplier number
 
---- Gets a value from the current state.
+--- Gets the value from the current state.
 --- @param identifier string
 --- @param defaultValue any
 --- @return any
@@ -17,13 +17,26 @@ function get(identifier, defaultValue)
     return state.GetValue(identifier) or defaultValue
 end
 
--- Clamps a value between a minimum and maximum value.
--- @param value The value to clamp.
--- @param min The minimum value of the range.
--- @param max The maximum value of the range.
--- @return The clamped value within the specified range.
+-- Clamps the value between a minimum and maximum value.
+-- @param value number
+-- @param min number
+-- @param max number
+-- @return number
 function clamp(value, min, max)
     return math.min(math.max(value, min), max)
+end
+
+-- Calculates the linear tween between a range.
+-- @param f number
+-- @param from number
+-- @param to number
+-- @return number
+function tween(f, from, to)
+    if from == to then
+        return from -- Lossless: This prevents slight floating point inaccuracies.
+    end
+
+    return from * (1 - f) + to * f
 end
 
 --- Removes duplicates from a table.
@@ -43,7 +56,7 @@ function removeDuplicateValues(list)
     return newList
 end
 
---- Returns a list of unique offsets (in increasing order) of selected notes [Table]
+--- Returns the list of unique offsets (in increasing order) of selected notes [Table]
 --- @return number[]
 function uniqueSelectedNoteOffsets()
     local offsets = {}
@@ -56,7 +69,7 @@ function uniqueSelectedNoteOffsets()
     return offsets
 end
 
---- Returns a chronologically ordered list of SVs between two offsets/times
+--- Returns the chronologically ordered list of SVs between two offsets/times
 --- @param startOffset number
 --- @param endOffset number
 --- @return ScrollVelocityInfo[]
@@ -110,7 +123,7 @@ function perSection(from, to)
 
     for _, sv in pairs(svs) do
         local f = (sv.StartTime - svs[1].StartTime) / (svs[#svs].StartTime - svs[1].StartTime)
-        local fm = from * (1 - f) + to * f
+        local fm = tween(f, from, to)
         table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, sv.Multiplier * fm))
     end
 
@@ -137,7 +150,7 @@ function perNote(from, to)
     for _, sv in pairs(svs) do
         local b, e = findAdjacentNotes(sv, offsets)
         local f = (sv.StartTime - b) / (e - b)
-        local fm = from * (1 - f) + to * f
+        local fm = tween(f, from, to)
         table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, sv.Multiplier * fm))
     end
 
@@ -169,7 +182,7 @@ function perSV(from, to, count)
 
         for j = 0, count, 1 do
             local f = j / tonumber(count - 1)
-            local fm = from * (1 - f) + to * f
+            local fm = tween(f, from, to)
             local gm = sv.StartTime * (1 - f) + n.StartTime * f
             table.insert(svsToAdd, utils.CreateScrollVelocity(gm, sv.Multiplier * fm))
         end
@@ -217,7 +230,7 @@ end
 --- @param tbl table
 function ActionButton(label, key, fn, tbl)
     if imgui.Button(label) or utils.IsKeyPressed(keys[key]) then
-        fn(unpack(tbl))
+        fn(table.unpack(tbl))
     end
 
     Tooltip("Alternatively, press " .. key .. " to perform this action.")
