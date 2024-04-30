@@ -15,7 +15,7 @@ local directions = { "in", "out", "inOut", "outIn" }
 
 -- The main function
 function draw()
-    imgui.Begin("mul")
+    imgui.Begin("mulch")
     Theme()
 
     local from = get("from", 0)
