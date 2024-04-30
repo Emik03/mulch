@@ -207,11 +207,7 @@ function afterfn(after)
         return random
     end
 
-    if name then
-        return math[afters[after + 1]]
-    end
-
-    return id
+    return math[name] or id
 end
 
 -- Calculates the linear tween between a range.
