@@ -11,76 +11,96 @@
 
 local afters = { "none", "abs", "acos", "asin", "atan", "ceil", "cos", "deg", "exp", "floor", "frac", "int", "log", "modf", "rad", "random", "sin", "sqrt", "tan" }
 local types = { "linear", "quad", "cubic", "quart", "quint", "sine", "expo", "circ", "elastic", "back", "bounce" }
-local dirs = { "in", "out", "inOut", "outIn" }
+local directions = { "in", "out", "inOut", "outIn" }
 
 -- The main function
 function draw()
     imgui.Begin("mul")
+    Theme()
+
     local from = get("from", 0)
     local to = get("to", 1)
     local count = get("count", 16)
     local type = get("type", 0)
-    local dir = get("dir", 0)
+    local direction = get("direction", 0)
     local amp = get("amp", 1)
     local period = get("period", 1)
     local after = get("after", 0)
     local add = get("add", false)
 
-    _, from = imgui.InputFloat("from", from)
-    Tooltip("The SV value to multiply by at the start of a group.")
-    _, to = imgui.InputFloat("to", to)
-    Tooltip("The SV value to multiply by at the end of a group.")
-    _, type = imgui.Combo("type", type, types, #types)
-    Tooltip("The tweening function.")
-
-    if types[type + 1] ~= "linear" then
-        _, dir = imgui.Combo("dir", dir, dirs, #dirs)
-        Tooltip("The tweening direction.")
-    end 
-
-    if types[type + 1] == "elastic" then
-        _, amp = imgui.InputFloat("amp", amp)
-        Tooltip("The amplitude.")
-        _, period = imgui.InputFloat("period", period)
-        Tooltip("The amount of bounces.")
-    end
-
-    _, after = imgui.Combo("after", after, afters, #afters)
-    Tooltip("The function to apply after the tween calculation.")
-    _, count = imgui.InputInt("count", count)
-    Tooltip("Number of points between SVs.\nThis parameter only applies to 'per sv'.")
-    count = clamp(count, 1, 10000)
-    _, add = imgui.Checkbox("add instead", add)
-    Tooltip("Determines whether to add instead of multiply.")
-    local ease = fulleasename(type, amp)
-
     if imgui.Button("swap") or utils.IsKeyPressed(keys.U) then
         from, to = to, from
     end
 
-    Tooltip("Alternatively, press U to perform this action.")
+    Tooltip("Swaps the parameters for the 'from' and 'to' values. Alternatively, press U to perform this action.")
     imgui.SameLine(0, 4)
-    ActionButton("per section", "I", perSection, { from, to, add, after, ease })
-    ActionButton("per note", "O", perNote, { from, to, add, after, ease })
+
+    _, ft = imgui.InputFloat2("", {from, to})
+    from = ft[1]
+    to = ft[2]
+
+    Separator()
+
+    _, type = imgui.Combo("type", type, types, #types)
+
+    if types[type + 1] == "elastic" then
+        _, ap = imgui.InputFloat2("args", {amp, period})
+        Tooltip("The elasticity severity and frequency, respectively.")
+        amp = ap[1]
+        period = ap[2]
+    end
+
+    if types[type + 1] ~= "linear" then
+        _, direction = imgui.Combo("direction", direction, directions, #directions)
+    end 
+
+    Separator()
+
+    _, count = imgui.InputInt("count", count)
+    Tooltip("The number of SVs to place between selected SVs. This parameter only applies to 'per sv'.")
+    count = clamp(count, 1, 10000)
+
+    _, after = imgui.Combo("after", after, afters, #afters)
+    Tooltip("The mathematical operation to apply to every result of a tween calculation before SV placement.")
+
+    Separator()
+
+    _, add = imgui.Checkbox("add instead", add)
+    Tooltip("Determines whether to add to existing SV amounts, instead of multiplying them.")
+
     imgui.SameLine(0, 4)
-    ActionButton("per sv", "P", perSV, { from, to, add, after, ease, count })
+
+    local ease = fulleasename(type, amp)
+
+    Separator()
+
+    ActionButton("section", "I", section, { from, to, add, after, ease }, "'from' is applied from the start of the selection.\n'to' is applied to the end of the selection.")
+
+    imgui.SameLine(0, 4)
+
+    ActionButton("per note", "O", perNote, { from, to, add, after, ease }, "'from' is applied from the selected note.\n'to' is applied just before next selected note.")
+
+    imgui.SameLine(0, 4)
+
+    ActionButton("per sv", "P", perSV, { from, to, add, after, ease, count }, "Smear tool, adds SVs in-between existing SVs. 'from' and 'to' function identically to 'section'.")
+
     state.SetValue("from", from)
     state.SetValue("to", to)
     state.SetValue("count", count)
     state.SetValue("type", type)
-    state.SetValue("dir", dir)
+    state.SetValue("direction", direction)
     state.SetValue("amp", amp)
     state.SetValue("period", period)
     state.SetValue("after", after)
     state.SetValue("add", add)
+
     imgui.End()
 end
 
-
---- Applies the linear tween per selected region
+--- Applies the tween over the entire selected region.
 --- @param from number
 --- @param to number
-function perSection(from, to, add, after, ease)
+function section(from, to, add, after, ease)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
     local svsToAdd = {}
@@ -104,7 +124,7 @@ function perSection(from, to, add, after, ease)
     })
 end
 
---- Applies the linear tween per note
+--- Applies the tween over each note selected.
 --- @param from number
 --- @param to number
 function perNote(from, to, add, after)
@@ -133,7 +153,7 @@ function perNote(from, to, add, after)
     })
 end
 
----Applies the linear tween per note
+---Applies the tween over each SV selected.
 ---@param from number
 ---@param to number
 function perSV(from, to, add, after, count)
@@ -286,12 +306,12 @@ end
 --- @param type string
 --- @param dir string
 --- @return string
-function fulleasename(type, dir)
+function fulleasename(type, direction)
     if types[type + 1] == "linear" then
         return "linear"
     end
 
-    return dirs[dir + 1] .. types[type + 1]:gsub("^%l", string.upper)
+    return directions[direction + 1] .. types[type + 1]:gsub("^%l", string.upper)
 end
 
 --- Adds or multiplies two numbers based on the condition.
@@ -305,6 +325,20 @@ function addormul(x, y, condition)
     end
 
     return x * y
+end
+
+--- Gets the RGBA object of the provided hex value.
+--- @param hex string
+--- @return number
+function rgb(hex)
+    hex = hex:gsub("#","")
+
+    return {
+    	tonumber("0x"..hex:sub(1, 2), 16) / 255.0,
+    	tonumber("0x"..hex:sub(3, 4), 16) / 255.0,
+    	tonumber("0x"..hex:sub(5, 6), 16) / 255.0,
+    	255
+    }
 end
 
 -- Clamps the value between a minimum and maximum value.
@@ -359,12 +393,75 @@ end
 --- @param key string
 --- @param fn function
 --- @param tbl table
-function ActionButton(label, key, fn, tbl)
+--- @param msg string
+function ActionButton(label, key, fn, tbl, msg)
     if imgui.Button(label) or utils.IsKeyPressed(keys[key]) then
         fn(table.unpack(tbl))
     end
 
-    Tooltip("Alternatively, press " .. key .. " to perform this action.")
+    Tooltip(msg .. " Alternatively, press " .. key .. " to perform this action.")
+end
+
+--- Applies the theme.
+function Theme()
+    -- Accent colors are unused, but are here in case if you want to change that.
+    -- local cyan = rgb("#8BE9FD")
+    -- local green = rgb("#50FA7B")
+    -- local orange = rgb("#FFB86C")
+    -- local pink = rgb("#FF79C6")
+    -- local purple = rgb("#BD93F9")
+    -- local red = rgb("#FF5555")
+    -- local yellow = rgb("#F1FA8C")
+
+    local morsels = rgb("#191A21")
+    local background = rgb("#282A36")
+    local current = rgb("#44475A")
+    local foreground = rgb("#F8F8F2")
+    local comment = rgb("#6272A4")
+    local roundness = 16
+
+    imgui.PushStyleColor(imgui_col.WindowBg, morsels)
+    imgui.PushStyleColor(imgui_col.Border, background)
+    imgui.PushStyleColor(imgui_col.FrameBg, background)
+    imgui.PushStyleColor(imgui_col.FrameBgHovered, current)
+    imgui.PushStyleColor(imgui_col.FrameBgActive, current)
+    imgui.PushStyleColor(imgui_col.TitleBg, background)
+    imgui.PushStyleColor(imgui_col.TitleBgActive, current)
+    imgui.PushStyleColor(imgui_col.TitleBgCollapsed, current)
+    imgui.PushStyleColor(imgui_col.CheckMark, comment)
+    imgui.PushStyleColor(imgui_col.SliderGrab, current)
+    imgui.PushStyleColor(imgui_col.SliderGrabActive, comment)
+    imgui.PushStyleColor(imgui_col.Button, current)
+    imgui.PushStyleColor(imgui_col.ButtonHovered, comment)
+    imgui.PushStyleColor(imgui_col.ButtonActive, comment)
+    imgui.PushStyleColor(imgui_col.Tab, background)
+    imgui.PushStyleColor(imgui_col.TabHovered, current)
+    imgui.PushStyleColor(imgui_col.TabActive, current)
+    imgui.PushStyleColor(imgui_col.Header, background)
+    imgui.PushStyleColor(imgui_col.HeaderHovered, current)
+    imgui.PushStyleColor(imgui_col.HeaderActive, current)
+    imgui.PushStyleColor(imgui_col.Separator, background)
+    imgui.PushStyleColor(imgui_col.Text, foreground)
+    imgui.PushStyleColor(imgui_col.TextSelectedBg, comment)
+    imgui.PushStyleColor(imgui_col.ScrollbarGrab, background)
+    imgui.PushStyleColor(imgui_col.ScrollbarGrabHovered, current)
+    imgui.PushStyleColor(imgui_col.ScrollbarGrabActive, current)
+    imgui.PushStyleColor(imgui_col.PlotLines, current)
+    imgui.PushStyleColor(imgui_col.PlotLinesHovered, comment)
+    imgui.PushStyleColor(imgui_col.PlotHistogram, current)
+    imgui.PushStyleColor(imgui_col.PlotHistogramHovered, comment)
+
+    imgui.PushStyleVar( imgui_style_var.FrameBorderSize, 0)
+    imgui.PushStyleVar( imgui_style_var.WindowPadding, { 8, 8 })
+    imgui.PushStyleVar( imgui_style_var.FramePadding, { 8, 8 })
+    imgui.PushStyleVar( imgui_style_var.ItemSpacing, { 8, 4 })
+    imgui.PushStyleVar( imgui_style_var.ItemInnerSpacing, { 8, 8 })
+    imgui.PushStyleVar( imgui_style_var.WindowRounding, roundness)
+    imgui.PushStyleVar( imgui_style_var.ChildRounding, roundness)
+    imgui.PushStyleVar( imgui_style_var.FrameRounding, roundness)
+    imgui.PushStyleVar( imgui_style_var.GrabRounding, roundness)
+    imgui.PushStyleVar( imgui_style_var.ScrollbarRounding, roundness)
+    imgui.PushStyleVar( imgui_style_var.TabRounding, roundness)
 end
 
 --- Creates a tooltip hoverable element.
@@ -382,6 +479,13 @@ function Tooltip(text)
     imgui.Text(text)
     imgui.PopTextWrapPos()
     imgui.EndTooltip()
+end
+
+-- Creates a separator with padding.
+function Separator()
+    imgui.Dummy({1, 1})
+    imgui.Separator()
+    imgui.Dummy({1, 1})
 end
 
 --- Returns an object for easings.
