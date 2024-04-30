@@ -10,8 +10,8 @@
 --- @field Multiplier number
 
 local afters = { "none", "abs", "acos", "asin", "atan", "ceil", "cos", "deg", "exp", "floor", "frac", "int", "log", "modf", "rad", "random", "sin", "sqrt", "tan" }
-local amplitude = 1
-local period = 1
+local types = { "linear", "quad", "cubic", "quart", "quint", "sine", "expo", "circ", "elastic", "back", "bounce" }
+local dirs = { "in", "out", "inOut", "outIn" }
 
 -- The main function
 function draw()
@@ -19,7 +19,10 @@ function draw()
     local from = get("from", 0)
     local to = get("to", 1)
     local count = get("count", 16)
-    local ease = get("ease", 0)
+    local type = get("type", 0)
+    local dir = get("dir", 0)
+    local amp = get("amp", 1)
+    local period = get("period", 1)
     local after = get("after", 0)
     local add = get("add", false)
 
@@ -27,13 +30,19 @@ function draw()
     Tooltip("The SV value to multiply by at the start of a group.")
     _, to = imgui.InputFloat("to", to)
     Tooltip("The SV value to multiply by at the end of a group.")
-    _, ease = imgui.Combo("ease", ease, easingsstr(), #easingsstr())
+    _, type = imgui.Combo("type", type, types, #types)
     Tooltip("The tweening function.")
 
-    -- Elastic options
-    if ease > 28 and ease <= 32 then
-        _, amplitude = imgui.InputFloat("amplitude", amplitude)
+    if types[type + 1] ~= "linear" then
+        _, dir = imgui.Combo("dir", dir, dirs, #dirs)
+        Tooltip("The tweening direction.")
+    end 
+
+    if types[type + 1] == "elastic" then
+        _, amp = imgui.InputFloat("amp", amp)
+        Tooltip("The amplitude.")
         _, period = imgui.InputFloat("period", period)
+        Tooltip("The amount of bounces.")
     end
 
     _, after = imgui.Combo("after", after, afters, #afters)
@@ -42,7 +51,8 @@ function draw()
     Tooltip("Number of points between SVs.\nThis parameter only applies to 'per sv'.")
     count = clamp(count, 1, 10000)
     _, add = imgui.Checkbox("add instead", add)
-    Tooltip("Whether to add instead of multiply")
+    Tooltip("Determines whether to add instead of multiply.")
+    local ease = fulleasename(type, amp)
 
     if imgui.Button("swap") or utils.IsKeyPressed(keys.U) then
         from, to = to, from
@@ -57,11 +67,15 @@ function draw()
     state.SetValue("from", from)
     state.SetValue("to", to)
     state.SetValue("count", count)
-    state.SetValue("ease", ease)
+    state.SetValue("type", type)
+    state.SetValue("dir", dir)
+    state.SetValue("amp", amp)
+    state.SetValue("period", period)
     state.SetValue("after", after)
     state.SetValue("add", add)
     imgui.End()
 end
+
 
 --- Applies the linear tween per selected region
 --- @param from number
@@ -246,17 +260,6 @@ function afterfn(after)
     return math[name] or id
 end
 
---- Gets all of the easing names.
-function easingsstr()
-    local ret = {}
-
-    for k, _ in pairs(easings()) do
-        table.insert(ret, k)
-    end
-
-    return ret
-end
-
 -- Calculates the tween between a range.
 -- @param f number
 -- @param from number
@@ -269,9 +272,7 @@ function tween(f, from, to, ease)
         return from
     end
 
-    local str = easingsstr()[ease + 1]
-
-    return easings()[str](
+    return easings()[ease](
         f, -- Elapsed time
         from, -- Beginning
         to - from, -- Duration (End - Beginning)
@@ -279,6 +280,18 @@ function tween(f, from, to, ease)
         amplitude, -- Elastic Only: Amplitude
         period -- Elastic Only: Period
     )
+end
+
+--- Gets the full ease name applicable in `easing`.
+--- @param type string
+--- @param dir string
+--- @return string
+function fulleasename(type, dir)
+    if types[type + 1] == "linear" then
+        return "linear"
+    end
+
+    return dirs[dir + 1] .. types[type + 1]:gsub("^%l", string.upper)
 end
 
 --- Adds or multiplies two numbers based on the condition.
