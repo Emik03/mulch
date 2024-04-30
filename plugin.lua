@@ -128,7 +128,7 @@ end
 --- Applies the tween over each note selected.
 --- @param from number
 --- @param to number
-function perNote(from, to, add, after)
+function perNote(from, to, add, after, ease)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
 
