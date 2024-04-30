@@ -18,6 +18,7 @@ function draw()
     local to = get("to", 1)
     local count = get("count", 16)
     local after = get("after", 0)
+    local add = get("add", false)
 
     _, from = imgui.InputFloat("from", from)
     Tooltip("The SV value to multiply by at the start of a group.")
@@ -26,8 +27,10 @@ function draw()
     _, after = imgui.Combo("after", after, afters, #afters)
     Tooltip("The function to apply after the tween calculation.")
     _, count = imgui.InputInt("count", count)
-    Tooltip("This parameter only applies to 'per sv'.\nNumber of points between SVs.")
+    Tooltip("Number of points between SVs.\nThis parameter only applies to 'per sv'.")
     count = clamp(count, 1, 10000)
+    _, add = imgui.Checkbox("add instead", add)
+    Tooltip("Whether to add instead of multiply")
 
     if imgui.Button("swap") or utils.IsKeyPressed(keys.U) then
         from, to = to, from
@@ -35,21 +38,22 @@ function draw()
 
     Tooltip("Alternatively, press U to perform this action.")
     imgui.SameLine(0, 4)
-    ActionButton("per section", "I", perSection, { from, to, after })
-    ActionButton("per note", "O", perNote, { from, to, after })
+    ActionButton("per section", "I", perSection, { from, to, add, after })
+    ActionButton("per note", "O", perNote, { from, to, add, after })
     imgui.SameLine(0, 4)
-    ActionButton("per sv", "P", perSV, { from, to, after, count })
+    ActionButton("per sv", "P", perSV, { from, to, add, after, count })
     state.SetValue("from", from)
     state.SetValue("to", to)
     state.SetValue("count", count)
     state.SetValue("after", after)
+    state.SetValue("add", add)
     imgui.End()
 end
 
 --- Applies the linear tween per selected region
 --- @param from number
 --- @param to number
-function perSection(from, to, after)
+function perSection(from, to, add, after)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
     local svsToAdd = {}
@@ -62,7 +66,8 @@ function perSection(from, to, after)
     for _, sv in pairs(svs) do
         local f = (sv.StartTime - svs[1].StartTime) / (svs[#svs].StartTime - svs[1].StartTime)
         local fm = tween(f, from, to)
-        local v = afterfn(after)(sv.Multiplier * fm)
+        local a = addormul(sv.Multiplier, fm, add)
+        local v = afterfn(after)(a)
         table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, v))
     end
 
@@ -75,7 +80,7 @@ end
 --- Applies the linear tween per note
 --- @param from number
 --- @param to number
-function perNote(from, to, after)
+function perNote(from, to, add, after)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
 
@@ -90,7 +95,8 @@ function perNote(from, to, after)
         local b, e = findAdjacentNotes(sv, offsets)
         local f = (sv.StartTime - b) / (e - b)
         local fm = tween(f, from, to)
-        local v = afterfn(after)(sv.Multiplier * fm)
+        local a = addormul(sv.Multiplier, fm, add)
+        local v = afterfn(after)(a)
         table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, v))
     end
 
@@ -103,7 +109,7 @@ end
 ---Applies the linear tween per note
 ---@param from number
 ---@param to number
-function perSV(from, to, after, count)
+function perSV(from, to, add, after, count)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
     local svsToAdd = {}
@@ -125,7 +131,8 @@ function perSV(from, to, after, count)
             local g = j / tonumber(count)
             local gm = tween(g, sv.StartTime, n.StartTime)
             local fm = tween(f, from, to)
-            local v = afterfn(after)(sv.Multiplier * fm)
+            local a = addormul(sv.Multiplier, fm, add)
+            local v = afterfn(after)(a)
             table.insert(svsToAdd, utils.CreateScrollVelocity(gm, v))
         end
     end
@@ -239,6 +246,19 @@ function tween(f, from, to)
     end
 
     return from * (1 - f) + to * f
+end
+
+--- Adds or multiplies two numbers based on the condition.
+--- @param x number
+--- @param y number
+--- @param condition boolean
+--- @return number
+function addormul(x, y, condition)
+    if condition then
+        return x + y
+    end
+
+    return x * y
 end
 
 -- Clamps the value between a minimum and maximum value.
