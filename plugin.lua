@@ -171,11 +171,11 @@ end
 --- @param endOffset number
 --- @return ScrollVelocityInfo[]
 function getSVsBetweenOffsets(startOffset, endOffset)
-    local svsBetweenOffsets = {}
-
     if startOffset == nil or endOffset == nil then
-        return svsBetweenOffsets
+        return {}
     end
+
+    local svsBetweenOffsets = {}
 
     for _, sv in ipairs(map.ScrollVelocities) do
         if sv.StartTime >= startOffset and sv.StartTime < endOffset then
