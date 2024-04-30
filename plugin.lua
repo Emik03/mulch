@@ -9,7 +9,7 @@
 --- @field StartTime number
 --- @field Multiplier number
 
-local afters = { "none", "abs", "acos", "asin", "atan", "ceil", "cos", "deg", "exp", "floor", "log", "modf", "rad", "random", "sin", "sqrt", "tan" }
+local afters = { "none", "abs", "acos", "asin", "atan", "ceil", "cos", "deg", "exp", "floor", "frac", "int", "log", "modf", "rad", "random", "sin", "sqrt", "tan" }
 
 -- The main function
 function draw()
@@ -211,6 +211,14 @@ end
 function afterfn(after)
     local name = afters[after + 1]
 
+    if name == "frac" then
+        return frac
+    end
+
+    if name == "int" then
+        return int
+    end
+
     if name == "random" then
         return random
     end
@@ -248,6 +256,22 @@ end
 --- @return any
 function get(identifier, defaultValue)
     return state.GetValue(identifier) or defaultValue
+end
+
+--- Gets the integral part of the number.
+--- @param x number
+--- @return number
+function int(x)
+    local ret, _ = math.modf(x)
+    return ret
+end
+
+--- Gets the fractional part of the number.
+--- @param x number
+--- @return number
+function frac(x)
+    local _, ret = math.modf(x)
+    return ret
 end
 
 --- Generates a random number starting or ending the number, depending on its sign.
