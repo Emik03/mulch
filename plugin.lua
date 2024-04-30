@@ -103,12 +103,13 @@ end
 function section(from, to, add, after, ease)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
-    local svsToAdd = {}
 
     if not svs[1] then
         print("Please select the region you wish to modify before pressing this button.")
         return
     end
+
+    local svsToAdd = {}
 
     for _, sv in pairs(svs) do
         local f = (sv.StartTime - svs[1].StartTime) / (svs[#svs].StartTime - svs[1].StartTime)
@@ -156,15 +157,16 @@ end
 ---Applies the tween over each SV selected.
 ---@param from number
 ---@param to number
-function perSV(from, to, add, after, count)
+function perSV(from, to, add, after, ease, count)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
-    local svsToAdd = {}
 
     if not svs[2] then
         print("Your selected region must contain at least 2 SV points for this action to work.")
         return
     end
+
+    local svsToAdd = {}
 
     for i, sv in ipairs(svs) do
         local n = svs[i + 1]
@@ -173,16 +175,18 @@ function perSV(from, to, add, after, count)
             break
         end
 
-        for j = 0, count, 1 do
-            local f = j / tonumber(count - 1)
-            local g = j / tonumber(count)
-            local gm = tween(g, sv.StartTime, n.StartTime)
+        for j = 0, count - 1, 1 do
+            local f = j / (count - 1.0)
+            local g = j / (count - 0.0)
             local fm = tween(f, from, to, ease)
+            local gm = tween(g, sv.StartTime, n.StartTime, "linear")
             local a = addormul(sv.Multiplier, fm, add)
             local v = afterfn(after)(a)
             table.insert(svsToAdd, utils.CreateScrollVelocity(gm, v))
         end
     end
+
+    table.insert(svsToAdd, utils.CreateScrollVelocity(svs[#svs].StartTime, svs[#svs].Multiplier))
 
     actions.PerformBatch({
         utils.CreateEditorAction(action_type.RemoveScrollVelocityBatch, svs),
@@ -292,14 +296,7 @@ function tween(f, from, to, ease)
         return from
     end
 
-    return easings()[ease](
-        f, -- Elapsed time
-        from, -- Beginning
-        to - from, -- Duration (End - Beginning)
-        to, -- End
-        amplitude, -- Elastic Only: Amplitude
-        period -- Elastic Only: Period
-    )
+    return easings()[ease](f, from, to - from, 1, amplitude, period)
 end
 
 --- Gets the full ease name applicable in `easing`.
