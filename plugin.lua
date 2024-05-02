@@ -19,16 +19,16 @@ function draw()
     imgui.Begin("mulch")
     Theme()
 
-    local from = get("from", 0)
-    local to = get("to", 1)
-    local count = get("count", 16)
-    local type = get("type", 0)
-    local direction = get("direction", 0)
-    local amp = get("amp", 1)
-    local period = get("period", 1)
-    local after = get("after", 0)
-    local by = get("by", math.exp(1))
-    local add = get("add", false)
+    local from = get("from", 0) ---@type number
+    local to = get("to", 1) ---@type number
+    local count = get("count", 16) ---@type integer
+    local type = get("type", 0) ---@type integer
+    local direction = get("direction", 0) ---@type integer
+    local amp = get("amp", 1) ---@type number
+    local period = get("period", 1) ---@type number
+    local after = get("after", 0) ---@type integer
+    local by = get("by", math.exp(1)) ---@type number
+    local add = get("add", false) ---@type boolean
 
     if imgui.Button("swap") or utils.IsKeyPressed(keys.U) then
         from, to = to, from
@@ -107,6 +107,13 @@ function draw()
     imgui.End()
 end
 
+--- Creates a plot with the given parameters.
+--- @param from number
+--- @param to number
+--- @param add boolean
+--- @param after integer
+--- @param by number
+--- @param ease string
 function plot(from, to, add, after, by, ease)
     imgui.Begin("Mulch Plot", imgui_window_flags.AlwaysAutoResize)
 
@@ -130,6 +137,10 @@ end
 --- Applies the tween over the entire selected region.
 --- @param from number
 --- @param to number
+--- @param add boolean
+--- @param after integer
+--- @param by number
+--- @param ease string
 function section(from, to, add, after, by, ease)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
@@ -158,6 +169,10 @@ end
 --- Applies the tween over each note selected.
 --- @param from number
 --- @param to number
+--- @param add boolean
+--- @param after integer
+--- @param by number
+--- @param ease string
 function perNote(from, to, add, after, by, ease)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
@@ -184,9 +199,14 @@ function perNote(from, to, add, after, by, ease)
     })
 end
 
----Applies the tween over each SV selected.
----@param from number
----@param to number
+--- Applies the tween over each SV selected.
+--- @param from number
+--- @param to number
+--- @param add boolean
+--- @param after integer
+--- @param by number
+--- @param ease string
+--- @param count integer
 function perSV(from, to, add, after, ease, by, count)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
@@ -241,7 +261,7 @@ function removeDuplicateValues(list)
     return newList
 end
 
---- Returns the list of unique offsets (in increasing order) of selected notes [Table]
+--- Returns the list of unique offsets (in increasing order) of selected notes
 --- @return number[]
 function uniqueSelectedNoteOffsets()
     local offsets = {}
@@ -294,7 +314,8 @@ function findAdjacentNotes(sv, notes)
 end
 
 --- Gets the function from the corresponding index returned by Combo.
---- @param after number
+--- @param after integer
+--- @param by number
 --- @return function
 function afterfn(after, by)
     local name = afters[after + 1]
@@ -329,7 +350,7 @@ end
 
 --- Gets the full ease name applicable in `easing`.
 --- @param type string
---- @param direction string
+--- @param direction number
 --- @return string
 function fulleasename(type, direction)
     if types[type + 1] == "linear" then
@@ -400,7 +421,7 @@ function frac(x)
     return ret
 end
 
---- Returns the argument.
+--- Returns the argument (identity function).
 --- @param x any
 --- @return any
 function id(x)
