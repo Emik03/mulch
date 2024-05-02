@@ -4,6 +4,8 @@ A plugin that sculpts and shapes SVs with tweeners for the video game [Quaver](h
 
 Originally named `mul` as a shortening of "multiply". However with the inclusion of the ability to add, its name became misleading.
 
+![image](https://github.com/Emik03/mulch/assets/14614115/462625a3-90be-4d4c-ae65-5094261ae356)
+
 ### Features
 
 - Support for [all common eases](https://easings.net/).
@@ -11,8 +13,6 @@ Originally named `mul` as a shortening of "multiply". However with the inclusion
 - Keyboard shortcuts (`UIOP`), including swapping `from` and `to`, as well as performing the 3 types of actions.
 - Functionality to add in-between SVs — also known as smearing — to existing SVs.
 - A toggle to specify adding or multiplying to the existing SV.
-
-![image](https://github.com/Emik03/mulch/assets/14614115/462625a3-90be-4d4c-ae65-5094261ae356)
 
 ### Credits
 
