@@ -1,0 +1,18 @@
+{
+  "Lua.diagnostics.globals": [
+    "imgui",
+    "draw",
+    "utils",
+    "keys",
+    "state",
+    "action_type",
+    "actions",
+    "imgui_col",
+    "imgui_style_var",
+    "map",
+    "imgui_window_flags"
+],
+"Lua.diagnostics.disable": [
+    "lowercase-global"
+]
+}

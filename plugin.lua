@@ -9,7 +9,8 @@
 --- @field StartTime number
 --- @field Multiplier number
 
-local afters = { "none", "abs", "acos", "asin", "atan", "ceil", "cos", "deg", "exp", "floor", "frac", "int", "log", "max", "min", "modf", "pow", "rad", "random", "sin", "sqrt", "tan" }
+local afters = { "none", "abs", "acos", "asin", "atan", "ceil", "cos", "deg", "exp", "floor", "frac", "int", "log", "max",
+    "min", "modf", "pow", "rad", "random", "sin", "sqrt", "tan" }
 local types = { "linear", "quad", "cubic", "quart", "quint", "sine", "expo", "circ", "elastic", "back", "bounce" }
 local directions = { "in", "out", "inOut", "outIn" }
 
@@ -18,16 +19,16 @@ function draw()
     imgui.Begin("mulch")
     Theme()
 
-    local from = get("from", 0)
-    local to = get("to", 1)
-    local count = get("count", 16)
-    local type = get("type", 0)
-    local direction = get("direction", 0)
-    local amp = get("amp", 1)
-    local period = get("period", 1)
-    local after = get("after", 0)
-    local by = get("by", math.exp(1))
-    local add = get("add", false)
+    local from = get("from", 0) ---@type number
+    local to = get("to", 1) ---@type number
+    local count = get("count", 16) ---@type integer
+    local type = get("type", 0) ---@type integer
+    local direction = get("direction", 0) ---@type integer
+    local amp = get("amp", 1) ---@type number
+    local period = get("period", 1) ---@type number
+    local after = get("after", 0) ---@type integer
+    local by = get("by", math.exp(1)) ---@type number
+    local add = get("add", false) ---@type boolean
 
     if imgui.Button("swap") or utils.IsKeyPressed(keys.U) then
         from, to = to, from
@@ -36,7 +37,7 @@ function draw()
     Tooltip("Swaps the parameters for the 'from' and 'to' values. Alternatively, press U to perform this action.")
     imgui.SameLine(0, 4)
 
-    _, ft = imgui.InputFloat2("", {from, to})
+    _, ft = imgui.InputFloat2("", { from, to })
     from = ft[1]
     to = ft[2]
 
@@ -45,7 +46,7 @@ function draw()
     _, type = imgui.Combo("type", type, types, #types)
 
     if types[type + 1] == "elastic" then
-        _, ap = imgui.InputFloat2("args", {amp, period})
+        _, ap = imgui.InputFloat2("args", { amp, period })
         Tooltip("The elasticity severity and frequency, respectively.")
         amp = ap[1]
         period = ap[2]
@@ -53,7 +54,7 @@ function draw()
 
     if types[type + 1] ~= "linear" then
         _, direction = imgui.Combo("direction", direction, directions, #directions)
-    end 
+    end
 
     Separator()
 
@@ -77,15 +78,20 @@ function draw()
 
     Separator()
 
-    local ease = fulleasename(type, amp)
+    local ease = fulleasename(type, direction)
 
-    ActionButton("section", "I", section, { from, to, add, after, by, ease }, "'from' is applied from the start of the selection.\n'to' is applied to the end of the selection.")
+    ActionButton("section", "I", section, { from, to, add, after, by, ease },
+        "'from' is applied from the start of the selection.\n'to' is applied to the end of the selection.")
     imgui.SameLine(0, 4)
 
-    ActionButton("per note", "O", perNote, { from, to, add, after, by, ease }, "'from' is applied from the selected note.\n'to' is applied just before next selected note.")
+    ActionButton("per note", "O", perNote, { from, to, add, after, by, ease },
+        "'from' is applied from the selected note.\n'to' is applied just before next selected note.")
     imgui.SameLine(0, 4)
 
-    ActionButton("per sv", "P", perSV, { from, to, add, after, by, ease, count }, "Smear tool, adds SVs in-between existing SVs. 'from' and 'to' function identically to 'section'.")
+    ActionButton("per sv", "P", perSV, { from, to, add, after, by, ease, count },
+        "Smear tool, adds SVs in-between existing SVs. 'from' and 'to' function identically to 'section'.")
+
+    plot(from, to, false, after, by, ease)
 
     state.SetValue("from", from)
     state.SetValue("to", to)
@@ -101,9 +107,40 @@ function draw()
     imgui.End()
 end
 
+--- Creates a plot with the given parameters.
+--- @param from number
+--- @param to number
+--- @param add boolean
+--- @param after integer
+--- @param by number
+--- @param ease string
+function plot(from, to, add, after, by, ease)
+    imgui.Begin("Mulch Plot", imgui_window_flags.AlwaysAutoResize)
+
+    local RESOLUTION = 50
+
+    local heightValues = {}
+
+    for i = 0, 1, 1 / RESOLUTION do
+        local f = i
+        local fm = tween(f, from, to, ease)
+        local a = addormul(1, fm, add)
+        local v = afterfn(after, by)(a)
+        table.insert(heightValues, v)
+    end
+
+    imgui.PlotLines("", heightValues, #heightValues, 0, "what the fuck", 0, 1, { 250, 150 })
+
+    imgui.End()
+end
+
 --- Applies the tween over the entire selected region.
 --- @param from number
 --- @param to number
+--- @param add boolean
+--- @param after integer
+--- @param by number
+--- @param ease string
 function section(from, to, add, after, by, ease)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
@@ -132,6 +169,10 @@ end
 --- Applies the tween over each note selected.
 --- @param from number
 --- @param to number
+--- @param add boolean
+--- @param after integer
+--- @param by number
+--- @param ease string
 function perNote(from, to, add, after, by, ease)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
@@ -158,9 +199,14 @@ function perNote(from, to, add, after, by, ease)
     })
 end
 
----Applies the tween over each SV selected.
----@param from number
----@param to number
+--- Applies the tween over each SV selected.
+--- @param from number
+--- @param to number
+--- @param add boolean
+--- @param after integer
+--- @param by number
+--- @param ease string
+--- @param count integer
 function perSV(from, to, add, after, ease, by, count)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
@@ -215,7 +261,7 @@ function removeDuplicateValues(list)
     return newList
 end
 
---- Returns the list of unique offsets (in increasing order) of selected notes [Table]
+--- Returns the list of unique offsets (in increasing order) of selected notes
 --- @return number[]
 function uniqueSelectedNoteOffsets()
     local offsets = {}
@@ -268,32 +314,43 @@ function findAdjacentNotes(sv, notes)
 end
 
 --- Gets the function from the corresponding index returned by Combo.
---- @param after number
+--- @param after integer
+--- @param by number
 --- @return function
 function afterfn(after, by)
     local name = afters[after + 1]
-    local overrides = { atan = atan(by), frac = frac, int = int, log = log(by), max = max(by), min = min(by), none = id, pow = pow(by), random = random }
+    local overrides = {
+        atan = atan(by),
+        frac = frac,
+        int = int,
+        log = log(by),
+        max = max(by),
+        min = min(by),
+        none = id,
+        pow =
+            pow(by),
+        random = random
+    }
     return overrides[name] or math[name] or error("Not implemented: " .. name)
 end
 
--- Calculates the tween between a range.
--- @param f number
--- @param from number
--- @param to number
--- @param ease string
--- @return number
+--- Calculates the tween between a range.
+--- @param f number
+--- @param from number
+--- @param to number
+--- @param ease string
+--- @return number
 function tween(f, from, to, ease)
     -- Lossless path: This prevents slight floating point inaccuracies.
     if from == to then
         return from
     end
-
-    return easings()[ease](f, from, to - from, 1, amplitude, period)
+    return easings()[ease](f, from, to - from, 1)
 end
 
 --- Gets the full ease name applicable in `easing`.
 --- @param type string
---- @param dir string
+--- @param direction number
 --- @return string
 function fulleasename(type, direction)
     if types[type + 1] == "linear" then
@@ -318,23 +375,23 @@ end
 
 --- Gets the RGBA object of the provided hex value.
 --- @param hex string
---- @return number
+--- @return number[]
 function rgb(hex)
-    hex = hex:gsub("#","")
+    hex = hex:gsub("#", "")
 
     return {
-    	tonumber("0x"..hex:sub(1, 2), 16) / 255.0,
-    	tonumber("0x"..hex:sub(3, 4), 16) / 255.0,
-    	tonumber("0x"..hex:sub(5, 6), 16) / 255.0,
-    	255
+        tonumber("0x" .. hex:sub(1, 2), 16) / 255.0,
+        tonumber("0x" .. hex:sub(3, 4), 16) / 255.0,
+        tonumber("0x" .. hex:sub(5, 6), 16) / 255.0,
+        255
     }
 end
 
--- Clamps the value between a minimum and maximum value.
--- @param value number
--- @param min number
--- @param max number
--- @return number
+--- Clamps the value between a minimum and maximum value.
+--- @param value number
+--- @param min number
+--- @param max number
+--- @return number
 function clamp(value, min, max)
     return math.min(math.max(value, min), max)
 end
@@ -364,8 +421,8 @@ function frac(x)
     return ret
 end
 
---- Returns the argument.
---- @param identifier any
+--- Returns the argument (identity function).
+--- @param x any
 --- @return any
 function id(x)
     return x
@@ -485,17 +542,17 @@ function Theme()
     imgui.PushStyleColor(imgui_col.PlotHistogram, current)
     imgui.PushStyleColor(imgui_col.PlotHistogramHovered, comment)
 
-    imgui.PushStyleVar( imgui_style_var.FrameBorderSize, 0)
-    imgui.PushStyleVar( imgui_style_var.WindowPadding, { 8, 8 })
-    imgui.PushStyleVar( imgui_style_var.FramePadding, { 8, 8 })
-    imgui.PushStyleVar( imgui_style_var.ItemSpacing, { 8, 4 })
-    imgui.PushStyleVar( imgui_style_var.ItemInnerSpacing, { 8, 8 })
-    imgui.PushStyleVar( imgui_style_var.WindowRounding, roundness)
-    imgui.PushStyleVar( imgui_style_var.ChildRounding, roundness)
-    imgui.PushStyleVar( imgui_style_var.FrameRounding, roundness)
-    imgui.PushStyleVar( imgui_style_var.GrabRounding, roundness)
-    imgui.PushStyleVar( imgui_style_var.ScrollbarRounding, roundness)
-    imgui.PushStyleVar( imgui_style_var.TabRounding, roundness)
+    imgui.PushStyleVar(imgui_style_var.FrameBorderSize, 0)
+    imgui.PushStyleVar(imgui_style_var.WindowPadding, { 8, 8 })
+    imgui.PushStyleVar(imgui_style_var.FramePadding, { 8, 8 })
+    imgui.PushStyleVar(imgui_style_var.ItemSpacing, { 8, 4 })
+    imgui.PushStyleVar(imgui_style_var.ItemInnerSpacing, { 8, 8 })
+    imgui.PushStyleVar(imgui_style_var.WindowRounding, roundness)
+    imgui.PushStyleVar(imgui_style_var.ChildRounding, roundness)
+    imgui.PushStyleVar(imgui_style_var.FrameRounding, roundness)
+    imgui.PushStyleVar(imgui_style_var.GrabRounding, roundness)
+    imgui.PushStyleVar(imgui_style_var.ScrollbarRounding, roundness)
+    imgui.PushStyleVar(imgui_style_var.TabRounding, roundness)
 end
 
 --- Creates a tooltip hoverable element.
@@ -517,20 +574,20 @@ end
 
 -- Creates a separator with padding.
 function Separator()
-    imgui.Dummy({1, 1})
+    imgui.Dummy({ 1, 1 })
     imgui.Separator()
-    imgui.Dummy({1, 1})
+    imgui.Dummy({ 1, 1 })
 end
 
 --- Returns an object for easings.
 function easings()
-	--
-	-- Adapted from
-	-- Tweener's easing functions (Penner's Easing Equations)
-	-- and http://code.google.com/p/tweener/ (jstweener javascript version)
-	--
+    --
+    -- Adapted from
+    -- Tweener's easing functions (Penner's Easing Equations)
+    -- and http://code.google.com/p/tweener/ (jstweener javascript version)
+    --
 
-	--[[
+    --[[
 	Disclaimer for Robert Penner's Easing Equations license:
 
 	TERMS OF USE - EASING EQUATIONS
@@ -549,414 +606,414 @@ function easings()
 	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	]]
 
-	-- For all easing functions:
-	-- t = elapsed time
-	-- b = begin
-	-- c = change == ending - beginning
-	-- d = duration (total time)
+    -- For all easing functions:
+    -- t = elapsed time
+    -- b = begin
+    -- c = change == ending - beginning
+    -- d = duration (total time)
 
-	local pow = function(x, y) return x ^ y end
-	local sin = math.sin
-	local cos = math.cos
-	local pi = math.pi
-	local sqrt = math.sqrt
-	local abs = math.abs
-	local asin  = math.asin
+    local pow  = function(x, y) return x ^ y end
+    local sin  = math.sin
+    local cos  = math.cos
+    local pi   = math.pi
+    local sqrt = math.sqrt
+    local abs  = math.abs
+    local asin = math.asin
 
-	local function linear(t, b, c, d)
-	  return c * t / d + b
-	end
+    local function linear(t, b, c, d)
+        return c * t / d + b
+    end
 
-	local function inQuad(t, b, c, d)
-	  t = t / d
-	  return c * pow(t, 2) + b
-	end
+    local function inQuad(t, b, c, d)
+        t = t / d
+        return c * pow(t, 2) + b
+    end
 
-	local function outQuad(t, b, c, d)
-	  t = t / d
-	  return -c * t * (t - 2) + b
-	end
+    local function outQuad(t, b, c, d)
+        t = t / d
+        return -c * t * (t - 2) + b
+    end
 
-	local function inOutQuad(t, b, c, d)
-	  t = t / d * 2
-	  if t < 1 then
-	    return c / 2 * pow(t, 2) + b
-	  else
-	    return -c / 2 * ((t - 1) * (t - 3) - 1) + b
-	  end
-	end
+    local function inOutQuad(t, b, c, d)
+        t = t / d * 2
+        if t < 1 then
+            return c / 2 * pow(t, 2) + b
+        else
+            return -c / 2 * ((t - 1) * (t - 3) - 1) + b
+        end
+    end
 
-	local function outInQuad(t, b, c, d)
-	  if t < d / 2 then
-	    return outQuad (t * 2, b, c / 2, d)
-	  else
-	    return inQuad((t * 2) - d, b + c / 2, c / 2, d)
-	  end
-	end
+    local function outInQuad(t, b, c, d)
+        if t < d / 2 then
+            return outQuad(t * 2, b, c / 2, d)
+        else
+            return inQuad((t * 2) - d, b + c / 2, c / 2, d)
+        end
+    end
 
-	local function inCubic (t, b, c, d)
-	  t = t / d
-	  return c * pow(t, 3) + b
-	end
+    local function inCubic(t, b, c, d)
+        t = t / d
+        return c * pow(t, 3) + b
+    end
 
-	local function outCubic(t, b, c, d)
-	  t = t / d - 1
-	  return c * (pow(t, 3) + 1) + b
-	end
+    local function outCubic(t, b, c, d)
+        t = t / d - 1
+        return c * (pow(t, 3) + 1) + b
+    end
 
-	local function inOutCubic(t, b, c, d)
-	  t = t / d * 2
-	  if t < 1 then
-	    return c / 2 * t * t * t + b
-	  else
-	    t = t - 2
-	    return c / 2 * (t * t * t + 2) + b
-	  end
-	end
+    local function inOutCubic(t, b, c, d)
+        t = t / d * 2
+        if t < 1 then
+            return c / 2 * t * t * t + b
+        else
+            t = t - 2
+            return c / 2 * (t * t * t + 2) + b
+        end
+    end
 
-	local function outInCubic(t, b, c, d)
-	  if t < d / 2 then
-	    return outCubic(t * 2, b, c / 2, d)
-	  else
-	    return inCubic((t * 2) - d, b + c / 2, c / 2, d)
-	  end
-	end
+    local function outInCubic(t, b, c, d)
+        if t < d / 2 then
+            return outCubic(t * 2, b, c / 2, d)
+        else
+            return inCubic((t * 2) - d, b + c / 2, c / 2, d)
+        end
+    end
 
-	local function inQuart(t, b, c, d)
-	  t = t / d
-	  return c * pow(t, 4) + b
-	end
+    local function inQuart(t, b, c, d)
+        t = t / d
+        return c * pow(t, 4) + b
+    end
 
-	local function outQuart(t, b, c, d)
-	  t = t / d - 1
-	  return -c * (pow(t, 4) - 1) + b
-	end
+    local function outQuart(t, b, c, d)
+        t = t / d - 1
+        return -c * (pow(t, 4) - 1) + b
+    end
 
-	local function inOutQuart(t, b, c, d)
-	  t = t / d * 2
-	  if t < 1 then
-	    return c / 2 * pow(t, 4) + b
-	  else
-	    t = t - 2
-	    return -c / 2 * (pow(t, 4) - 2) + b
-	  end
-	end
+    local function inOutQuart(t, b, c, d)
+        t = t / d * 2
+        if t < 1 then
+            return c / 2 * pow(t, 4) + b
+        else
+            t = t - 2
+            return -c / 2 * (pow(t, 4) - 2) + b
+        end
+    end
 
-	local function outInQuart(t, b, c, d)
-	  if t < d / 2 then
-	    return outQuart(t * 2, b, c / 2, d)
-	  else
-	    return inQuart((t * 2) - d, b + c / 2, c / 2, d)
-	  end
-	end
+    local function outInQuart(t, b, c, d)
+        if t < d / 2 then
+            return outQuart(t * 2, b, c / 2, d)
+        else
+            return inQuart((t * 2) - d, b + c / 2, c / 2, d)
+        end
+    end
 
-	local function inQuint(t, b, c, d)
-	  t = t / d
-	  return c * pow(t, 5) + b
-	end
+    local function inQuint(t, b, c, d)
+        t = t / d
+        return c * pow(t, 5) + b
+    end
 
-	local function outQuint(t, b, c, d)
-	  t = t / d - 1
-	  return c * (pow(t, 5) + 1) + b
-	end
+    local function outQuint(t, b, c, d)
+        t = t / d - 1
+        return c * (pow(t, 5) + 1) + b
+    end
 
-	local function inOutQuint(t, b, c, d)
-	  t = t / d * 2
-	  if t < 1 then
-	    return c / 2 * pow(t, 5) + b
-	  else
-	    t = t - 2
-	    return c / 2 * (pow(t, 5) + 2) + b
-	  end
-	end
+    local function inOutQuint(t, b, c, d)
+        t = t / d * 2
+        if t < 1 then
+            return c / 2 * pow(t, 5) + b
+        else
+            t = t - 2
+            return c / 2 * (pow(t, 5) + 2) + b
+        end
+    end
 
-	local function outInQuint(t, b, c, d)
-	  if t < d / 2 then
-	    return outQuint(t * 2, b, c / 2, d)
-	  else
-	    return inQuint((t * 2) - d, b + c / 2, c / 2, d)
-	  end
-	end
+    local function outInQuint(t, b, c, d)
+        if t < d / 2 then
+            return outQuint(t * 2, b, c / 2, d)
+        else
+            return inQuint((t * 2) - d, b + c / 2, c / 2, d)
+        end
+    end
 
-	local function inSine(t, b, c, d)
-	  return -c * cos(t / d * (pi / 2)) + c + b
-	end
+    local function inSine(t, b, c, d)
+        return -c * cos(t / d * (pi / 2)) + c + b
+    end
 
-	local function outSine(t, b, c, d)
-	  return c * sin(t / d * (pi / 2)) + b
-	end
+    local function outSine(t, b, c, d)
+        return c * sin(t / d * (pi / 2)) + b
+    end
 
-	local function inOutSine(t, b, c, d)
-	  return -c / 2 * (cos(pi * t / d) - 1) + b
-	end
+    local function inOutSine(t, b, c, d)
+        return -c / 2 * (cos(pi * t / d) - 1) + b
+    end
 
-	local function outInSine(t, b, c, d)
-	  if t < d / 2 then
-	    return outSine(t * 2, b, c / 2, d)
-	  else
-	    return inSine((t * 2) -d, b + c / 2, c / 2, d)
-	  end
-	end
+    local function outInSine(t, b, c, d)
+        if t < d / 2 then
+            return outSine(t * 2, b, c / 2, d)
+        else
+            return inSine((t * 2) - d, b + c / 2, c / 2, d)
+        end
+    end
 
-	local function inExpo(t, b, c, d)
-	  if t == 0 then
-	    return b
-	  else
-	    return c * pow(2, 10 * (t / d - 1)) + b - c * 0.001
-	  end
-	end
+    local function inExpo(t, b, c, d)
+        if t == 0 then
+            return b
+        else
+            return c * pow(2, 10 * (t / d - 1)) + b - c * 0.001
+        end
+    end
 
-	local function outExpo(t, b, c, d)
-	  if t == d then
-	    return b + c
-	  else
-	    return c * 1.001 * (-pow(2, -10 * t / d) + 1) + b
-	  end
-	end
+    local function outExpo(t, b, c, d)
+        if t == d then
+            return b + c
+        else
+            return c * 1.001 * (-pow(2, -10 * t / d) + 1) + b
+        end
+    end
 
-	local function inOutExpo(t, b, c, d)
-	  if t == 0 then return b end
-	  if t == d then return b + c end
-	  t = t / d * 2
-	  if t < 1 then
-	    return c / 2 * pow(2, 10 * (t - 1)) + b - c * 0.0005
-	  else
-	    t = t - 1
-	    return c / 2 * 1.0005 * (-pow(2, -10 * t) + 2) + b
-	  end
-	end
+    local function inOutExpo(t, b, c, d)
+        if t == 0 then return b end
+        if t == d then return b + c end
+        t = t / d * 2
+        if t < 1 then
+            return c / 2 * pow(2, 10 * (t - 1)) + b - c * 0.0005
+        else
+            t = t - 1
+            return c / 2 * 1.0005 * (-pow(2, -10 * t) + 2) + b
+        end
+    end
 
-	local function outInExpo(t, b, c, d)
-	  if t < d / 2 then
-	    return outExpo(t * 2, b, c / 2, d)
-	  else
-	    return inExpo((t * 2) - d, b + c / 2, c / 2, d)
-	  end
-	end
+    local function outInExpo(t, b, c, d)
+        if t < d / 2 then
+            return outExpo(t * 2, b, c / 2, d)
+        else
+            return inExpo((t * 2) - d, b + c / 2, c / 2, d)
+        end
+    end
 
-	local function inCirc(t, b, c, d)
-	  t = t / d
-	  return(-c * (sqrt(1 - pow(t, 2)) - 1) + b)
-	end
+    local function inCirc(t, b, c, d)
+        t = t / d
+        return (-c * (sqrt(1 - pow(t, 2)) - 1) + b)
+    end
 
-	local function outCirc(t, b, c, d)
-	  t = t / d - 1
-	  return(c * sqrt(1 - pow(t, 2)) + b)
-	end
+    local function outCirc(t, b, c, d)
+        t = t / d - 1
+        return (c * sqrt(1 - pow(t, 2)) + b)
+    end
 
-	local function inOutCirc(t, b, c, d)
-	  t = t / d * 2
-	  if t < 1 then
-	    return -c / 2 * (sqrt(1 - t * t) - 1) + b
-	  else
-	    t = t - 2
-	    return c / 2 * (sqrt(1 - t * t) + 1) + b
-	  end
-	end
+    local function inOutCirc(t, b, c, d)
+        t = t / d * 2
+        if t < 1 then
+            return -c / 2 * (sqrt(1 - t * t) - 1) + b
+        else
+            t = t - 2
+            return c / 2 * (sqrt(1 - t * t) + 1) + b
+        end
+    end
 
-	local function outInCirc(t, b, c, d)
-	  if t < d / 2 then
-	    return outCirc(t * 2, b, c / 2, d)
-	  else
-	    return inCirc((t * 2) - d, b + c / 2, c / 2, d)
-	  end
-	end
+    local function outInCirc(t, b, c, d)
+        if t < d / 2 then
+            return outCirc(t * 2, b, c / 2, d)
+        else
+            return inCirc((t * 2) - d, b + c / 2, c / 2, d)
+        end
+    end
 
-	local function inElastic(t, b, c, d, a, p)
-	  if t == 0 then return b end
+    local function inElastic(t, b, c, d, a, p)
+        if t == 0 then return b end
 
-	  t = t / d
+        t = t / d
 
-	  if t == 1  then return b + c end
+        if t == 1 then return b + c end
 
-	  if not p then p = d * 0.3 end
+        if not p then p = d * 0.3 end
 
-	  local s
+        local s
 
-	  if not a or a < abs(c) then
-	    a = c
-	    s = p / 4
-	  else
-	    s = p / (2 * pi) * asin(c/a)
-	  end
+        if not a or a < abs(c) then
+            a = c
+            s = p / 4
+        else
+            s = p / (2 * pi) * asin(c / a)
+        end
 
-	  t = t - 1
+        t = t - 1
 
-	  return -(a * pow(2, 10 * t) * sin((t * d - s) * (2 * pi) / p)) + b
-	end
+        return -(a * pow(2, 10 * t) * sin((t * d - s) * (2 * pi) / p)) + b
+    end
 
-	-- a: amplitud
-	-- p: period
-	local function outElastic(t, b, c, d, a, p)
-	  if t == 0 then return b end
+    -- a: amplitud
+    -- p: period
+    local function outElastic(t, b, c, d, a, p)
+        if t == 0 then return b end
 
-	  t = t / d
+        t = t / d
 
-	  if t == 1 then return b + c end
+        if t == 1 then return b + c end
 
-	  if not p then p = d * 0.3 end
+        if not p then p = d * 0.3 end
 
-	  local s
+        local s
 
-	  if not a or a < abs(c) then
-	    a = c
-	    s = p / 4
-	  else
-	    s = p / (2 * pi) * asin(c/a)
-	  end
+        if not a or a < abs(c) then
+            a = c
+            s = p / 4
+        else
+            s = p / (2 * pi) * asin(c / a)
+        end
 
-	  return a * pow(2, -10 * t) * sin((t * d - s) * (2 * pi) / p) + c + b
-	end
+        return a * pow(2, -10 * t) * sin((t * d - s) * (2 * pi) / p) + c + b
+    end
 
-	-- p = period
-	-- a = amplitud
-	local function inOutElastic(t, b, c, d, a, p)
-	  if t == 0 then return b end
+    -- p = period
+    -- a = amplitud
+    local function inOutElastic(t, b, c, d, a, p)
+        if t == 0 then return b end
 
-	  t = t / d * 2
+        t = t / d * 2
 
-	  if t == 2 then return b + c end
+        if t == 2 then return b + c end
 
-	  if not p then p = d * (0.3 * 1.5) end
-	  if not a then a = 0 end
+        if not p then p = d * (0.3 * 1.5) end
+        if not a then a = 0 end
 
-	  local s
+        local s
 
-	  if not a or a < abs(c) then
-	    a = c
-	    s = p / 4
-	  else
-	    s = p / (2 * pi) * asin(c / a)
-	  end
+        if not a or a < abs(c) then
+            a = c
+            s = p / 4
+        else
+            s = p / (2 * pi) * asin(c / a)
+        end
 
-	  if t < 1 then
-	    t = t - 1
-	    return -0.5 * (a * pow(2, 10 * t) * sin((t * d - s) * (2 * pi) / p)) + b
-	  else
-	    t = t - 1
-	    return a * pow(2, -10 * t) * sin((t * d - s) * (2 * pi) / p ) * 0.5 + c + b
-	  end
-	end
+        if t < 1 then
+            t = t - 1
+            return -0.5 * (a * pow(2, 10 * t) * sin((t * d - s) * (2 * pi) / p)) + b
+        else
+            t = t - 1
+            return a * pow(2, -10 * t) * sin((t * d - s) * (2 * pi) / p) * 0.5 + c + b
+        end
+    end
 
-	-- a: amplitud
-	-- p: period
-	local function outInElastic(t, b, c, d, a, p)
-	  if t < d / 2 then
-	    return outElastic(t * 2, b, c / 2, d, a, p)
-	  else
-	    return inElastic((t * 2) - d, b + c / 2, c / 2, d, a, p)
-	  end
-	end
+    -- a: amplitud
+    -- p: period
+    local function outInElastic(t, b, c, d, a, p)
+        if t < d / 2 then
+            return outElastic(t * 2, b, c / 2, d, a, p)
+        else
+            return inElastic((t * 2) - d, b + c / 2, c / 2, d, a, p)
+        end
+    end
 
-	local function inBack(t, b, c, d, s)
-	  if not s then s = 1.70158 end
-	  t = t / d
-	  return c * t * t * ((s + 1) * t - s) + b
-	end
+    local function inBack(t, b, c, d, s)
+        if not s then s = 1.70158 end
+        t = t / d
+        return c * t * t * ((s + 1) * t - s) + b
+    end
 
-	local function outBack(t, b, c, d, s)
-	  if not s then s = 1.70158 end
-	  t = t / d - 1
-	  return c * (t * t * ((s + 1) * t + s) + 1) + b
-	end
+    local function outBack(t, b, c, d, s)
+        if not s then s = 1.70158 end
+        t = t / d - 1
+        return c * (t * t * ((s + 1) * t + s) + 1) + b
+    end
 
-	local function inOutBack(t, b, c, d, s)
-	  if not s then s = 1.70158 end
-	  s = s * 1.525
-	  t = t / d * 2
-	  if t < 1 then
-	    return c / 2 * (t * t * ((s + 1) * t - s)) + b
-	  else
-	    t = t - 2
-	    return c / 2 * (t * t * ((s + 1) * t + s) + 2) + b
-	  end
-	end
+    local function inOutBack(t, b, c, d, s)
+        if not s then s = 1.70158 end
+        s = s * 1.525
+        t = t / d * 2
+        if t < 1 then
+            return c / 2 * (t * t * ((s + 1) * t - s)) + b
+        else
+            t = t - 2
+            return c / 2 * (t * t * ((s + 1) * t + s) + 2) + b
+        end
+    end
 
-	local function outInBack(t, b, c, d, s)
-	  if t < d / 2 then
-	    return outBack(t * 2, b, c / 2, d, s)
-	  else
-	    return inBack((t * 2) - d, b + c / 2, c / 2, d, s)
-	  end
-	end
+    local function outInBack(t, b, c, d, s)
+        if t < d / 2 then
+            return outBack(t * 2, b, c / 2, d, s)
+        else
+            return inBack((t * 2) - d, b + c / 2, c / 2, d, s)
+        end
+    end
 
-	local function outBounce(t, b, c, d)
-	  t = t / d
-	  if t < 1 / 2.75 then
-	    return c * (7.5625 * t * t) + b
-	  elseif t < 2 / 2.75 then
-	    t = t - (1.5 / 2.75)
-	    return c * (7.5625 * t * t + 0.75) + b
-	  elseif t < 2.5 / 2.75 then
-	    t = t - (2.25 / 2.75)
-	    return c * (7.5625 * t * t + 0.9375) + b
-	  else
-	    t = t - (2.625 / 2.75)
-	    return c * (7.5625 * t * t + 0.984375) + b
-	  end
-	end
+    local function outBounce(t, b, c, d)
+        t = t / d
+        if t < 1 / 2.75 then
+            return c * (7.5625 * t * t) + b
+        elseif t < 2 / 2.75 then
+            t = t - (1.5 / 2.75)
+            return c * (7.5625 * t * t + 0.75) + b
+        elseif t < 2.5 / 2.75 then
+            t = t - (2.25 / 2.75)
+            return c * (7.5625 * t * t + 0.9375) + b
+        else
+            t = t - (2.625 / 2.75)
+            return c * (7.5625 * t * t + 0.984375) + b
+        end
+    end
 
-	local function inBounce(t, b, c, d)
-	  return c - outBounce(d - t, 0, c, d) + b
-	end
+    local function inBounce(t, b, c, d)
+        return c - outBounce(d - t, 0, c, d) + b
+    end
 
-	local function inOutBounce(t, b, c, d)
-	  if t < d / 2 then
-	    return inBounce(t * 2, 0, c, d) * 0.5 + b
-	  else
-	    return outBounce(t * 2 - d, 0, c, d) * 0.5 + c * .5 + b
-	  end
-	end
+    local function inOutBounce(t, b, c, d)
+        if t < d / 2 then
+            return inBounce(t * 2, 0, c, d) * 0.5 + b
+        else
+            return outBounce(t * 2 - d, 0, c, d) * 0.5 + c * .5 + b
+        end
+    end
 
-	local function outInBounce(t, b, c, d)
-	  if t < d / 2 then
-	    return outBounce(t * 2, b, c / 2, d)
-	  else
-	    return inBounce((t * 2) - d, b + c / 2, c / 2, d)
-	  end
-	end
+    local function outInBounce(t, b, c, d)
+        if t < d / 2 then
+            return outBounce(t * 2, b, c / 2, d)
+        else
+            return inBounce((t * 2) - d, b + c / 2, c / 2, d)
+        end
+    end
 
-	return {
-	  linear = linear,
-	  inQuad = inQuad,
-	  outQuad = outQuad,
-	  inOutQuad = inOutQuad,
-	  outInQuad = outInQuad,
-	  inCubic  = inCubic ,
-	  outCubic = outCubic,
-	  inOutCubic = inOutCubic,
-	  outInCubic = outInCubic,
-	  inQuart = inQuart,
-	  outQuart = outQuart,
-	  inOutQuart = inOutQuart,
-	  outInQuart = outInQuart,
-	  inQuint = inQuint,
-	  outQuint = outQuint,
-	  inOutQuint = inOutQuint,
-	  outInQuint = outInQuint,
-	  inSine = inSine,
-	  outSine = outSine,
-	  inOutSine = inOutSine,
-	  outInSine = outInSine,
-	  inExpo = inExpo,
-	  outExpo = outExpo,
-	  inOutExpo = inOutExpo,
-	  outInExpo = outInExpo,
-	  inCirc = inCirc,
-	  outCirc = outCirc,
-	  inOutCirc = inOutCirc,
-	  outInCirc = outInCirc,
-	  inElastic = inElastic,
-	  outElastic = outElastic,
-	  inOutElastic = inOutElastic,
-	  outInElastic = outInElastic,
-	  inBack = inBack,
-	  outBack = outBack,
-	  inOutBack = inOutBack,
-	  outInBack = outInBack,
-	  inBounce = inBounce,
-	  outBounce = outBounce,
-	  inOutBounce = inOutBounce,
-	  outInBounce = outInBounce,
-	}
+    return {
+        linear       = linear,
+        inQuad       = inQuad,
+        outQuad      = outQuad,
+        inOutQuad    = inOutQuad,
+        outInQuad    = outInQuad,
+        inCubic      = inCubic,
+        outCubic     = outCubic,
+        inOutCubic   = inOutCubic,
+        outInCubic   = outInCubic,
+        inQuart      = inQuart,
+        outQuart     = outQuart,
+        inOutQuart   = inOutQuart,
+        outInQuart   = outInQuart,
+        inQuint      = inQuint,
+        outQuint     = outQuint,
+        inOutQuint   = inOutQuint,
+        outInQuint   = outInQuint,
+        inSine       = inSine,
+        outSine      = outSine,
+        inOutSine    = inOutSine,
+        outInSine    = outInSine,
+        inExpo       = inExpo,
+        outExpo      = outExpo,
+        inOutExpo    = inOutExpo,
+        outInExpo    = outInExpo,
+        inCirc       = inCirc,
+        outCirc      = outCirc,
+        inOutCirc    = inOutCirc,
+        outInCirc    = outInCirc,
+        inElastic    = inElastic,
+        outElastic   = outElastic,
+        inOutElastic = inOutElastic,
+        outInElastic = outInElastic,
+        inBack       = inBack,
+        outBack      = outBack,
+        inOutBack    = inOutBack,
+        outInBack    = outInBack,
+        inBounce     = inBounce,
+        outBounce    = outBounce,
+        inOutBounce  = inOutBounce,
+        outInBounce  = outInBounce,
+    }
 end
