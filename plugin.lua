@@ -91,7 +91,7 @@ function draw()
     ActionButton("per sv", "P", perSV, { from, to, add, after, by, amp, period, ease, count },
         "Smear tool, adds SVs in-between existing SVs. 'from' and 'to' function identically to 'section'.")
 
-    plot(from, to, false, after, by, amp, period, ease)
+    plot(from, to, add, after, by, amp, period, ease)
 
     state.SetValue("from", from)
     state.SetValue("to", to)
@@ -138,8 +138,8 @@ function plot(from, to, add, after, by, amp, period, ease)
         #heightValues,
         0,
         ease .. ", " .. math.floor(min * 100 + 0.5) / 100 .. " to " .. math.floor(max * 100 + 0.5) / 100,
-        0,
-        1,
+        min,
+        max,
         { 250, 150 }
     )
 
