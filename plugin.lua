@@ -115,7 +115,7 @@ end
 --- @param by number
 --- @param ease string
 function plot(from, to, add, after, by, ease)
-    imgui.Begin("Mulch Plot", imgui_window_flags.AlwaysAutoResize)
+    imgui.Begin("mulch plot", imgui_window_flags.AlwaysAutoResize)
 
     local RESOLUTION = 50
 
@@ -129,7 +129,7 @@ function plot(from, to, add, after, by, ease)
         table.insert(heightValues, v)
     end
 
-    imgui.PlotLines("", heightValues, #heightValues, 0, "what the fuck", 0, 1, { 250, 150 })
+    imgui.PlotLines("", heightValues, #heightValues, 0, "easing type: " .. ease, 0, 1, { 250, 150 })
 
     imgui.End()
 end
