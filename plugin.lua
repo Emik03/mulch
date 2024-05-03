@@ -137,7 +137,7 @@ function plot(from, to, add, after, by, amp, period, ease)
         heightValues,
         #heightValues,
         0,
-        ease .. ", " .. math.floor(min * 100) / 100 .. " to " .. math.floor(max * 100) / 100,
+        ease .. ", " .. math.floor(min * 100 + 0.5) / 100 .. " to " .. math.floor(max * 100 + 0.5) / 100,
         0,
         1,
         { 250, 150 }
