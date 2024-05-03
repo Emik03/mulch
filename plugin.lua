@@ -80,18 +80,18 @@ function draw()
 
     local ease = fulleasename(type, direction)
 
-    ActionButton("section", "I", section, { from, to, add, after, by, ease },
+    ActionButton("section", "I", section, { from, to, add, after, by, amp, period, ease },
         "'from' is applied from the start of the selection.\n'to' is applied to the end of the selection.")
     imgui.SameLine(0, 4)
 
-    ActionButton("per note", "O", perNote, { from, to, add, after, by, ease },
+    ActionButton("per note", "O", perNote, { from, to, add, after, by, amp, period, ease },
         "'from' is applied from the selected note.\n'to' is applied just before next selected note.")
     imgui.SameLine(0, 4)
 
-    ActionButton("per sv", "P", perSV, { from, to, add, after, by, ease, count },
+    ActionButton("per sv", "P", perSV, { from, to, add, after, by, amp, period, ease, count },
         "Smear tool, adds SVs in-between existing SVs. 'from' and 'to' function identically to 'section'.")
 
-    plot(from, to, false, after, by, ease)
+    plot(from, to, false, after, by, amp, period, ease)
 
     state.SetValue("from", from)
     state.SetValue("to", to)
@@ -114,22 +114,34 @@ end
 --- @param after integer
 --- @param by number
 --- @param ease string
-function plot(from, to, add, after, by, ease)
+function plot(from, to, add, after, by, amp, period, ease)
     imgui.Begin("mulch plot", imgui_window_flags.AlwaysAutoResize)
 
-    local RESOLUTION = 50
-
+    local RESOLUTION = 100
     local heightValues = {}
+    local max = -1 / 0
+    local min = 1 / 0
 
-    for i = 0, 1, 1 / RESOLUTION do
-        local f = i
-        local fm = tween(f, from, to, ease)
+    for i = 0, RESOLUTION, 1 do
+        local f = i / RESOLUTION
+        local fm = tween(f, from, to, amp, period, ease)
         local a = addormul(1, fm, add)
         local v = afterfn(after, by)(a)
         table.insert(heightValues, v)
+        max = math.max(v, max)
+        min = math.min(v, min)
     end
 
-    imgui.PlotLines("", heightValues, #heightValues, 0, "easing type: " .. ease, 0, 1, { 250, 150 })
+    imgui.PlotLines(
+        "",
+        heightValues,
+        #heightValues,
+        0,
+        ease .. ", " .. math.floor(min * 100) / 100 .. " to " .. math.floor(max * 100) / 100,
+        0,
+        1,
+        { 250, 150 }
+    )
 
     imgui.End()
 end
@@ -141,7 +153,7 @@ end
 --- @param after integer
 --- @param by number
 --- @param ease string
-function section(from, to, add, after, by, ease)
+function section(from, to, add, after, by, amp, period, ease)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
 
@@ -154,7 +166,7 @@ function section(from, to, add, after, by, ease)
 
     for _, sv in pairs(svs) do
         local f = (sv.StartTime - svs[1].StartTime) / (svs[#svs].StartTime - svs[1].StartTime)
-        local fm = tween(f, from, to, ease)
+        local fm = tween(f, from, to, amp, period, ease)
         local a = addormul(sv.Multiplier, fm, add)
         local v = afterfn(after, by)(a)
         table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, v))
@@ -173,7 +185,7 @@ end
 --- @param after integer
 --- @param by number
 --- @param ease string
-function perNote(from, to, add, after, by, ease)
+function perNote(from, to, add, after, by, amp, period, ease)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
 
@@ -187,7 +199,7 @@ function perNote(from, to, add, after, by, ease)
     for _, sv in pairs(svs) do
         local b, e = findAdjacentNotes(sv, offsets)
         local f = (sv.StartTime - b) / (e - b)
-        local fm = tween(f, from, to, ease)
+        local fm = tween(f, from, to, amp, period, ease)
         local a = addormul(sv.Multiplier, fm, add)
         local v = afterfn(after, by)(a)
         table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, v))
@@ -207,7 +219,7 @@ end
 --- @param by number
 --- @param ease string
 --- @param count integer
-function perSV(from, to, add, after, ease, by, count)
+function perSV(from, to, add, after, ease, by, amp, period, count)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
 
@@ -228,7 +240,7 @@ function perSV(from, to, add, after, ease, by, count)
         for j = 0, count - 1, 1 do
             local f = j / (count - 1.0)
             local g = j / (count - 0.0)
-            local fm = tween(f, from, to, ease)
+            local fm = tween(f, from, to, amp, period, ease)
             local gm = tween(g, sv.StartTime, n.StartTime, "linear")
             local a = addormul(sv.Multiplier, fm, add)
             local v = afterfn(after, by)(a)
@@ -319,6 +331,7 @@ end
 --- @return function
 function afterfn(after, by)
     local name = afters[after + 1]
+
     local overrides = {
         atan = atan(by),
         frac = frac,
@@ -327,10 +340,10 @@ function afterfn(after, by)
         max = max(by),
         min = min(by),
         none = id,
-        pow =
-            pow(by),
+        pow = pow(by),
         random = random
     }
+
     return overrides[name] or math[name] or error("Not implemented: " .. name)
 end
 
@@ -340,12 +353,12 @@ end
 --- @param to number
 --- @param ease string
 --- @return number
-function tween(f, from, to, ease)
+function tween(f, from, to, amp, period, ease)
     -- Lossless path: This prevents slight floating point inaccuracies.
     if from == to then
         return from
     end
-    return easings()[ease](f, from, to - from, 1)
+    return easings()[ease](f, from, to - from, 1, amp, period)
 end
 
 --- Gets the full ease name applicable in `easing`.
@@ -379,11 +392,19 @@ end
 function rgb(hex)
     hex = hex:gsub("#", "")
 
+    local alpha
+
+    if #hex > 6 then
+        alpha = tonumber("0x" .. hex:sub(7, 8), 16) / 255.0
+    else
+        alpha = 255
+    end
+
     return {
         tonumber("0x" .. hex:sub(1, 2), 16) / 255.0,
         tonumber("0x" .. hex:sub(3, 4), 16) / 255.0,
         tonumber("0x" .. hex:sub(5, 6), 16) / 255.0,
-        255
+        alpha
     }
 end
 
@@ -496,7 +517,6 @@ end
 --- Applies the theme.
 function Theme()
     -- Accent colors are unused, but are here in case if you want to change that.
-    -- local cyan = rgb("#8BE9FD")
     -- local green = rgb("#50FA7B")
     -- local orange = rgb("#FFB86C")
     -- local pink = rgb("#FF79C6")
@@ -504,6 +524,7 @@ function Theme()
     -- local red = rgb("#FF5555")
     -- local yellow = rgb("#F1FA8C")
 
+    local cyan = rgb("#8BE9FD")
     local morsels = rgb("#191A21")
     local background = rgb("#282A36")
     local current = rgb("#44475A")
@@ -519,7 +540,7 @@ function Theme()
     imgui.PushStyleColor(imgui_col.TitleBg, background)
     imgui.PushStyleColor(imgui_col.TitleBgActive, current)
     imgui.PushStyleColor(imgui_col.TitleBgCollapsed, current)
-    imgui.PushStyleColor(imgui_col.CheckMark, comment)
+    imgui.PushStyleColor(imgui_col.CheckMark, cyan)
     imgui.PushStyleColor(imgui_col.SliderGrab, current)
     imgui.PushStyleColor(imgui_col.SliderGrabActive, comment)
     imgui.PushStyleColor(imgui_col.Button, current)
@@ -537,10 +558,10 @@ function Theme()
     imgui.PushStyleColor(imgui_col.ScrollbarGrab, background)
     imgui.PushStyleColor(imgui_col.ScrollbarGrabHovered, current)
     imgui.PushStyleColor(imgui_col.ScrollbarGrabActive, current)
-    imgui.PushStyleColor(imgui_col.PlotLines, current)
-    imgui.PushStyleColor(imgui_col.PlotLinesHovered, comment)
-    imgui.PushStyleColor(imgui_col.PlotHistogram, current)
-    imgui.PushStyleColor(imgui_col.PlotHistogramHovered, comment)
+    imgui.PushStyleColor(imgui_col.PlotLines, cyan)
+    imgui.PushStyleColor(imgui_col.PlotLinesHovered, foreground)
+    imgui.PushStyleColor(imgui_col.PlotHistogram, cyan)
+    imgui.PushStyleColor(imgui_col.PlotHistogramHovered, foreground)
 
     imgui.PushStyleVar(imgui_style_var.FrameBorderSize, 0)
     imgui.PushStyleVar(imgui_style_var.WindowPadding, { 8, 8 })
