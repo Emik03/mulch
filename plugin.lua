@@ -88,7 +88,7 @@ function draw()
         "'from' is applied from the selected note.\n'to' is applied just before next selected note.")
     imgui.SameLine(0, 4)
 
-    ActionButton("per sv", "P", perSV, { from, to, add, after, by, amp, period, ease, count },
+    ActionButton("per sv", "P", perSV, { from, to, add, after, ease, by, amp, period, count },
         "Smear tool, adds SVs in-between existing SVs. 'from' and 'to' function identically to 'section'.")
 
     plot(from, to, add, after, by, amp, period, ease)
@@ -241,7 +241,7 @@ function perSV(from, to, add, after, ease, by, amp, period, count)
             local f = j / (count - 1.0)
             local g = j / (count - 0.0)
             local fm = tween(f, from, to, amp, period, ease)
-            local gm = tween(g, sv.StartTime, n.StartTime, "linear")
+            local gm = tween(g, sv.StartTime, n.StartTime, 0, 0, "linear")
             local a = addormul(sv.Multiplier, fm, add)
             local v = afterfn(after, by)(a)
             table.insert(svsToAdd, utils.CreateScrollVelocity(gm, v))
