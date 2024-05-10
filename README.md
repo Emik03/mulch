@@ -21,7 +21,7 @@ Originally named `mul` as a shortening of "multiply". However with the inclusion
 ### Credits
 
 This project would not be as good as it is without the help of other projects. A massive thank you to:
-- [amogSV](https://github.com/kloi34/amoguSV) by [kloi34](https://github.com/kloi34) for its SV functions.
+- [amoguSV](https://github.com/kloi34/amoguSV) by [kloi34](https://github.com/kloi34) for its SV functions.
 - [easing](https://github.com/EmmanuelOga/easing) by [EmmanuelOga](https://github.com/EmmanuelOga) for its easing functions.
 
 ### Other Plugins
