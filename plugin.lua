@@ -16,12 +16,12 @@ local directions = { "in", "out", "inOut", "outIn" }
 
 -- The main function
 function draw()
-    imgui.Begin("mulch")
+    imgui.Begin("mulch", imgui_window_flags.AlwaysAutoResize)
     Theme()
 
     local from = get("from", 0) ---@type number
     local to = get("to", 1) ---@type number
-    local count = get("count", 16) ---@type integer
+    local count = get("count", 64) ---@type integer
     local type = get("type", 0) ---@type integer
     local direction = get("direction", 0) ---@type integer
     local amp = get("amp", 1) ---@type number
@@ -29,19 +29,24 @@ function draw()
     local after = get("after", 0) ---@type integer
     local by = get("by", math.exp(1)) ---@type number
     local add = get("add", false) ---@type boolean
+    local show = get("show", false) ---@type boolean
 
     if imgui.Button("swap") or utils.IsKeyPressed(keys.U) then
         from, to = to, from
     end
 
     Tooltip("Swaps the parameters for the 'from' and 'to' values. Alternatively, press U to perform this action.")
-    imgui.SameLine(0, 4)
+    imgui.SameLine(0, 10)
 
     _, ft = imgui.InputFloat2("", { from, to })
     from = ft[1]
     to = ft[2]
 
-    Separator()
+    _, count = imgui.InputInt("count", count)
+    Tooltip("The resolution of the plot, and the number of SVs to place between each SV when 'per SV' is used.")
+    count = clamp(count, 1, 256)
+
+    imgui.Separator()
 
     _, type = imgui.Combo("type", type, types, #types)
 
@@ -56,13 +61,7 @@ function draw()
         _, direction = imgui.Combo("direction", direction, directions, #directions)
     end
 
-    Separator()
-
-    _, count = imgui.InputInt("count", count)
-    Tooltip("The number of SVs to place between selected SVs. This parameter only applies to 'per sv'.")
-    count = clamp(count, 1, 10000)
-
-    Separator()
+    imgui.Separator()
 
     _, after = imgui.Combo("after", after, afters, #afters)
     Tooltip("The mathematical operation to apply to every result of a tween calculation before SV placement.")
@@ -71,27 +70,31 @@ function draw()
         _, by = imgui.InputFloat("by", by)
     end
 
-    Separator()
+    imgui.Separator()
 
     _, add = imgui.Checkbox("add instead", add)
     Tooltip("Determines whether to add to existing SV amounts, instead of multiplying them.")
+    imgui.SameLine(0, 10)
 
-    Separator()
+    _, show = imgui.Checkbox("measure", show)
+    Tooltip("Currently does nothing. WIP")
+
+    imgui.Separator()
 
     local ease = fulleasename(type, direction)
 
     ActionButton("section", "I", section, { from, to, add, after, by, amp, period, ease },
         "'from' is applied from the start of the selection.\n'to' is applied to the end of the selection.")
-    imgui.SameLine(0, 4)
+    imgui.SameLine(0, 10)
 
     ActionButton("per note", "O", perNote, { from, to, add, after, by, amp, period, ease },
         "'from' is applied from the selected note.\n'to' is applied just before next selected note.")
-    imgui.SameLine(0, 4)
+    imgui.SameLine(0, 10)
 
     ActionButton("per sv", "P", perSV, { from, to, add, after, ease, by, amp, period, count },
         "Smear tool, adds SVs in-between existing SVs. 'from' and 'to' function identically to 'section'.")
 
-    plot(from, to, add, after, by, amp, period, ease)
+    plot(from, to, add, after, by, amp, period, ease, count)
 
     state.SetValue("from", from)
     state.SetValue("to", to)
@@ -103,6 +106,7 @@ function draw()
     state.SetValue("after", after)
     state.SetValue("by", by)
     state.SetValue("add", add)
+    state.SetValue("show", show)
 
     imgui.End()
 end
@@ -114,16 +118,16 @@ end
 --- @param after integer
 --- @param by number
 --- @param ease string
-function plot(from, to, add, after, by, amp, period, ease)
+--- @param count number
+function plot(from, to, add, after, by, amp, period, ease, count)
     imgui.Begin("mulch plot", imgui_window_flags.AlwaysAutoResize)
 
-    local RESOLUTION = 100
     local heightValues = {}
     local max = -1 / 0
     local min = 1 / 0
 
-    for i = 0, RESOLUTION, 1 do
-        local f = i / RESOLUTION
+    for i = 0, count, 1 do
+        local f = i / count
         local fm = tween(f, from, to, amp, period, ease)
         local a = addormul(1, fm, add)
         local v = afterfn(after, by)(a)
@@ -140,7 +144,7 @@ function plot(from, to, add, after, by, amp, period, ease)
         ease .. ", " .. math.floor(min * 100 + 0.5) / 100 .. " to " .. math.floor(max * 100 + 0.5) / 100,
         min,
         max,
-        { 250, 150 }
+        { 300, 150 }
     )
 
     imgui.End()
@@ -530,50 +534,79 @@ function Theme()
     local current = rgb("#44475A")
     local foreground = rgb("#F8F8F2")
     local comment = rgb("#6272A4")
-    local roundness = 16
+    local rounding = 25
+    local spacing = { 10, 10 }
 
+    imgui.PushStyleColor(imgui_col.Text, foreground)
+    imgui.PushStyleColor(imgui_col.TextDisabled, comment)
     imgui.PushStyleColor(imgui_col.WindowBg, morsels)
+    imgui.PushStyleColor(imgui_col.ChildBg, morsels)
+    imgui.PushStyleColor(imgui_col.PopupBg, morsels)
     imgui.PushStyleColor(imgui_col.Border, background)
+    imgui.PushStyleColor(imgui_col.BorderShadow, background)
     imgui.PushStyleColor(imgui_col.FrameBg, background)
     imgui.PushStyleColor(imgui_col.FrameBgHovered, current)
     imgui.PushStyleColor(imgui_col.FrameBgActive, current)
     imgui.PushStyleColor(imgui_col.TitleBg, background)
     imgui.PushStyleColor(imgui_col.TitleBgActive, current)
     imgui.PushStyleColor(imgui_col.TitleBgCollapsed, current)
+    imgui.PushStyleColor(imgui_col.MenuBarBg, background)
+    imgui.PushStyleColor(imgui_col.ScrollbarBg, background)
+    imgui.PushStyleColor(imgui_col.ScrollbarGrab, background)
+    imgui.PushStyleColor(imgui_col.ScrollbarGrabHovered, current)
+    imgui.PushStyleColor(imgui_col.ScrollbarGrabActive, current)
     imgui.PushStyleColor(imgui_col.CheckMark, cyan)
     imgui.PushStyleColor(imgui_col.SliderGrab, current)
     imgui.PushStyleColor(imgui_col.SliderGrabActive, comment)
     imgui.PushStyleColor(imgui_col.Button, current)
     imgui.PushStyleColor(imgui_col.ButtonHovered, comment)
     imgui.PushStyleColor(imgui_col.ButtonActive, comment)
-    imgui.PushStyleColor(imgui_col.Tab, background)
-    imgui.PushStyleColor(imgui_col.TabHovered, current)
-    imgui.PushStyleColor(imgui_col.TabActive, current)
     imgui.PushStyleColor(imgui_col.Header, background)
     imgui.PushStyleColor(imgui_col.HeaderHovered, current)
     imgui.PushStyleColor(imgui_col.HeaderActive, current)
     imgui.PushStyleColor(imgui_col.Separator, background)
-    imgui.PushStyleColor(imgui_col.Text, foreground)
-    imgui.PushStyleColor(imgui_col.TextSelectedBg, comment)
-    imgui.PushStyleColor(imgui_col.ScrollbarGrab, background)
-    imgui.PushStyleColor(imgui_col.ScrollbarGrabHovered, current)
-    imgui.PushStyleColor(imgui_col.ScrollbarGrabActive, current)
+    imgui.PushStyleColor(imgui_col.SeparatorHovered, background)
+    imgui.PushStyleColor(imgui_col.SeparatorActive, background)
+    imgui.PushStyleColor(imgui_col.ResizeGrip, background)
+    imgui.PushStyleColor(imgui_col.ResizeGripHovered, background)
+    imgui.PushStyleColor(imgui_col.ResizeGripActive, background)
+    imgui.PushStyleColor(imgui_col.Tab, background)
+    imgui.PushStyleColor(imgui_col.TabHovered, current)
+    imgui.PushStyleColor(imgui_col.TabActive, current)
+    imgui.PushStyleColor(imgui_col.TabUnfocused, current)
+    imgui.PushStyleColor(imgui_col.TabUnfocusedActive, current)
     imgui.PushStyleColor(imgui_col.PlotLines, cyan)
     imgui.PushStyleColor(imgui_col.PlotLinesHovered, foreground)
     imgui.PushStyleColor(imgui_col.PlotHistogram, cyan)
     imgui.PushStyleColor(imgui_col.PlotHistogramHovered, foreground)
+    imgui.PushStyleColor(imgui_col.TextSelectedBg, comment)
+    imgui.PushStyleColor(imgui_col.DragDropTarget, current)
+    imgui.PushStyleColor(imgui_col.NavHighlight, current)
+    imgui.PushStyleColor(imgui_col.NavWindowingHighlight, current)
+    imgui.PushStyleColor(imgui_col.NavWindowingDimBg, current)
+    imgui.PushStyleColor(imgui_col.ModalWindowDimBg, current)
 
+    imgui.PushStyleVar(imgui_style_var.Alpha, 1)
+    imgui.PushStyleVar(imgui_style_var.WindowBorderSize, 0)
+    imgui.PushStyleVar(imgui_style_var.WindowMinSize, { 0, 0 })
+    imgui.PushStyleVar(imgui_style_var.WindowTitleAlign, { 0, 0.4 })
+    imgui.PushStyleVar(imgui_style_var.ChildRounding, rounding)
+    imgui.PushStyleVar(imgui_style_var.ChildBorderSize, 0)
+    imgui.PushStyleVar(imgui_style_var.PopupRounding, rounding)
+    imgui.PushStyleVar(imgui_style_var.PopupBorderSize, { 0, 0 })
+    imgui.PushStyleVar(imgui_style_var.FramePadding, spacing)
+    imgui.PushStyleVar(imgui_style_var.FrameRounding, rounding)
     imgui.PushStyleVar(imgui_style_var.FrameBorderSize, 0)
-    imgui.PushStyleVar(imgui_style_var.WindowPadding, { 8, 8 })
-    imgui.PushStyleVar(imgui_style_var.FramePadding, { 8, 8 })
-    imgui.PushStyleVar(imgui_style_var.ItemSpacing, { 8, 4 })
-    imgui.PushStyleVar(imgui_style_var.ItemInnerSpacing, { 8, 8 })
-    imgui.PushStyleVar(imgui_style_var.WindowRounding, roundness)
-    imgui.PushStyleVar(imgui_style_var.ChildRounding, roundness)
-    imgui.PushStyleVar(imgui_style_var.FrameRounding, roundness)
-    imgui.PushStyleVar(imgui_style_var.GrabRounding, roundness)
-    imgui.PushStyleVar(imgui_style_var.ScrollbarRounding, roundness)
-    imgui.PushStyleVar(imgui_style_var.TabRounding, roundness)
+    imgui.PushStyleVar(imgui_style_var.ItemSpacing, spacing)
+    imgui.PushStyleVar(imgui_style_var.ItemInnerSpacing, spacing)
+    imgui.PushStyleVar(imgui_style_var.ItemInnerSpacing, spacing)
+    imgui.PushStyleVar(imgui_style_var.IndentSpacing, spacing)
+    imgui.PushStyleVar(imgui_style_var.ScrollbarSize, 0)
+    imgui.PushStyleVar(imgui_style_var.ScrollbarRounding, rounding)
+    imgui.PushStyleVar(imgui_style_var.GrabMinSize, 0)
+    imgui.PushStyleVar(imgui_style_var.GrabRounding, rounding)
+    imgui.PushStyleVar(imgui_style_var.TabRounding, rounding)
+    imgui.PushStyleVar(imgui_style_var.ButtonTextAlign, { 0.5, 0.5 })
 end
 
 --- Creates a tooltip hoverable element.
@@ -591,13 +624,6 @@ function Tooltip(text)
     imgui.Text(text)
     imgui.PopTextWrapPos()
     imgui.EndTooltip()
-end
-
--- Creates a separator with padding.
-function Separator()
-    imgui.Dummy({ 1, 1 })
-    imgui.Separator()
-    imgui.Dummy({ 1, 1 })
 end
 
 --- Returns an object for easings.
