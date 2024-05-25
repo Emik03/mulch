@@ -95,14 +95,14 @@ function draw()
     if types[type + 1] ~= "linear" then
         imgui.SameLine(0, padding)
         imgui.PushItemWidth(100)
-        local _, direction = imgui.Combo("direction", direction, dirs, #dirs)
+        _, direction = imgui.Combo("direction", direction, dirs, #dirs)
         imgui.PopItemWidth()
     end
 
     if types[type + 1] == "elastic" then
         imgui.PushItemWidth(215)
 
-        local _, ap = imgui.InputFloat2(
+        _, ap = imgui.InputFloat2(
             "amp/period",
             { amp, period },
             "%.2f",
@@ -129,7 +129,7 @@ function draw()
     if special[afters[after + 1]] then
         imgui.SameLine(0, padding)
         imgui.PushItemWidth(100)
-        local _, by = imgui.InputDouble("by", by, 0, 0, "%.2f", textFlags)
+        _, by = imgui.InputDouble("by", by, 0, 0, "%.2f", textFlags)
         imgui.PopItemWidth()
 
         Tooltip(
