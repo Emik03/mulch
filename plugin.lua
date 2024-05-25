@@ -9,9 +9,14 @@
 --- @field StartTime number
 --- @field Multiplier number
 
-local lastSize = { 0, 200 }
 local lastPosition = { 1635, 95 }
+local lastSize = { 0, 200 }
+local lastSelectables = {}
+local lastRelative = false
 local lastSelected = 0
+local lastShow = false
+local lastNsv = false
+local lastTime = 0
 local textFlags
 
 local afters = {
@@ -59,7 +64,7 @@ function draw()
     imgui.SameLine(0, padding)
 
     imgui.PushItemWidth(165)
-    _, ft = imgui.InputFloat2("from/to", { from, to }, "%.2f", textFlags)
+    local _, ft = imgui.InputFloat2("from/to", { from, to }, "%.2f", textFlags)
     imgui.PopItemWidth()
     from = ft[1]
     to = ft[2]
@@ -71,7 +76,7 @@ function draw()
         "'from' and 'to' values."
     )
 
-    _, count = imgui.InputInt("count", count, 1, 1, textFlags)
+    local _, count = imgui.InputInt("count", count, 1, 1, textFlags)
 
     Tooltip(
         "The resolution of the plot, and the number of SVs " ..
@@ -84,28 +89,34 @@ function draw()
     showCalculator(textFlags)
 
     imgui.PushItemWidth(100)
-    _, type = imgui.Combo("type", type, types, #types)
+    local _, type = imgui.Combo("type", type, types, #types)
     imgui.PopItemWidth()
 
     if types[type + 1] ~= "linear" then
         imgui.SameLine(0, padding)
         imgui.PushItemWidth(100)
-        _, direction = imgui.Combo("direction", direction, dirs, #dirs)
+        local _, direction = imgui.Combo("direction", direction, dirs, #dirs)
         imgui.PopItemWidth()
     end
 
     if types[type + 1] == "elastic" then
         imgui.PushItemWidth(215)
-        _, ap = imgui.InputFloat2("amp/period", { amp, period }, "%.2f", textFlags)
+
+        local _, ap = imgui.InputFloat2(
+            "amp/period",
+            { amp, period },
+            "%.2f",
+            textFlags
+        )
+
         imgui.PopItemWidth()
         Tooltip("The elasticity severity, and frequency, respectively.")
-        amp = ap[1]
-        period = ap[2]
+        amp, period = ap
     end
 
     imgui.Separator()
     imgui.PushItemWidth(100)
-    _, after = imgui.Combo("after", after, afters, #afters)
+    local _, after = imgui.Combo("after", after, afters, #afters)
     imgui.PopItemWidth()
 
     Tooltip(
@@ -118,7 +129,7 @@ function draw()
     if special[afters[after + 1]] then
         imgui.SameLine(0, padding)
         imgui.PushItemWidth(100)
-        _, by = imgui.InputDouble("by", by, 0, 0, "%.2f", textFlags)
+        local _, by = imgui.InputDouble("by", by, 0, 0, "%.2f", textFlags)
         imgui.PopItemWidth()
 
         Tooltip(
@@ -130,7 +141,7 @@ function draw()
 
     imgui.Separator()
 
-    _, add = imgui.Checkbox("add instead", add)
+    local _, add = imgui.Checkbox("add instead", add)
 
     Tooltip(
         "Determines whether to add to existing SV amounts, " ..
@@ -139,7 +150,7 @@ function draw()
 
     imgui.SameLine(0, padding)
 
-    _, show = imgui.Checkbox("show note info", show)
+    local _, show = imgui.Checkbox("show note info", show)
 
     Tooltip(
         "When enabled, displays SV distance of selected notes in a window. " ..
@@ -207,7 +218,7 @@ function showCalculator(textFlags)
     local precise = get("precise", false) ---@type boolean
     local calculators = get("calculators", 1) ---@type number
 
-    _, precise = imgui.Checkbox("precise", precise)
+    local _, precise = imgui.Checkbox("precise", precise)
 
     Tooltip(
         "When enabled, displays higher precision,\n" ..
@@ -217,7 +228,15 @@ function showCalculator(textFlags)
     imgui.SameLine(0, 10)
 
     imgui.PushItemWidth(1)
-    _, calculators = imgui.InputInt("calculators", calculators, 1, 1, textFlags)
+
+    local _, calculators = imgui.InputInt(
+        "calculators",
+        calculators,
+        1,
+        1,
+        textFlags
+    )
+
     imgui.PopItemWidth()
 
     Tooltip("The number of calculators.\nEach text field is independent.")
@@ -248,7 +267,7 @@ function showOneCalculator(i, precise)
     local calculate = get(key, "") ---@type string
 
     imgui.PushItemWidth(200)
-    _, calculate = imgui.InputText(key, calculate, 100)
+    local _, calculate = imgui.InputText(key, calculate, 100)
     imgui.PopItemWidth()
 
     state.SetValue(key, calculate)
@@ -279,12 +298,15 @@ end
 --- Shows the note info window.
 --- @param show boolean
 function showNoteInfo(show)
+    local refresh = show and not lastShow
+    lastShow = show
+
     if not show then
         return
     end
 
     local objects = state.SelectedHitObjects
-    local name = "mulch positions (" .. tostring(#objects) .. ")"
+    local name = "mulch positions (" .. tostring(#objects) .. " selected)"
     imgui.Begin(name)
 
     if #objects ~= lastSelected then
@@ -294,8 +316,7 @@ function showNoteInfo(show)
 
     local relative = get("relative", false) ---@type boolean
     local nsv = get("nsv", false) ---@type boolean
-
-    _, relative = imgui.Checkbox("relative", relative)
+    local _, relative = imgui.Checkbox("relative", relative)
 
     Tooltip(
         "Distance will be relative to the first selected note, " ..
@@ -303,29 +324,48 @@ function showNoteInfo(show)
     )
 
     imgui.SameLine(0, 10)
-    _, nsv = imgui.Checkbox("nsv", nsv)
+    local _, nsv = imgui.Checkbox("nsv", nsv)
     Tooltip("Distance is measured without considering SVs.")
-
-    state.SetValue("relative", relative)
-    state.SetValue("nsv", nsv)
-
     imgui.Separator()
 
-    local markers = positionMarkers(relative, nsv)
+    if #objects == 0 then
+    elseif #objects == lastSelected and
+        lastNsv == nsv and
+        lastRelative == relative and
+        not refresh then
+        for i = 1, #objects, 1 do
+            local obj = objects[i]
+            local positionString = lastSelectables[i]
 
-    for i = 1, #objects, 1 do
-        local positionString = tostring(markers(objects[i].StartTime) / 100)
+            if imgui.Selectable(toStringNotePretty(obj, positionString)) then
+                imgui.SetClipboardText(positionString)
+                print("Copied '" .. positionString .. "' to clipboard.")
+            end
+        end
+    else
+        lastSelectables[#objects] = nil
+        local markers = positionMarkers(relative, nsv)
 
-        if imgui.Selectable(tostring(objects[i].StartTime) .. "|" ..
-            tostring(objects[i].Lane) .. ": " .. positionString) then
-            imgui.SetClipboardText(positionString)
-            print("Copied '" .. positionString .. "' to clipboard.")
+        for i = 1, #objects, 1 do
+            local obj = objects[i]
+            local positionString = tostring(markers(obj.StartTime) / 100)
+
+            lastSelectables[i] = positionString
+
+            if imgui.Selectable(toStringNotePretty(obj, positionString)) then
+                imgui.SetClipboardText(positionString)
+                print("Copied '" .. positionString .. "' to clipboard.")
+            end
         end
     end
 
+    state.SetValue("relative", relative)
+    state.SetValue("nsv", nsv)
     lastPosition = imgui.GetWindowPos(name)
     lastSize = imgui.GetWindowSize(name)
     lastSelected = #objects
+    lastRelative = relative
+    lastNsv = nsv
     imgui.End()
 end
 
@@ -514,13 +554,28 @@ function positionMarkers(relative, nsv)
     end
 
     local index = 2
-    local svs = map.ScrollVelocities
-    local pos = math.floor(toF32(svs[1].StartTime * 100))
+    local pos
 
     return function(time)
+        local svs = map.ScrollVelocities
+
+        if not first and relative then
+            while index < #svs and time >= svs[index].StartTime do
+                index = index + 1
+            end
+        end
+
         if time < svs[1].StartTime then
             first = first or ret
             return math.floor(toF32((time - first) * 100))
+        end
+
+        if not pos then
+            if relative then
+                pos = 0
+            else
+                pos = math.floor(toF32(svs[1].StartTime * 100))
+            end
         end
 
         while index < #svs and time >= svs[index].StartTime do
@@ -691,6 +746,13 @@ function addormul(x, y, condition)
     end
 
     return x * y
+end
+
+--- Converts a note to a string.
+--- @param obj HitObject
+--- @param mark string
+function toStringNotePretty(obj, mark)
+    return tostring(obj.StartTime) .. "|" .. tostring(obj.Lane) .. ": " .. mark
 end
 
 --- Gets the RGBA object of the provided hex value.
