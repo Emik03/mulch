@@ -58,9 +58,18 @@ function draw()
 
     imgui.SameLine(0, padding)
 
-    _, ft = imgui.InputFloat2("", { from, to }, "%.2f", textFlags)
+    imgui.PushItemWidth(165)
+    _, ft = imgui.InputFloat2("from/to", { from, to }, "%.2f", textFlags)
+    imgui.PopItemWidth()
     from = ft[1]
     to = ft[2]
+
+    Tooltip(
+        "The left field is 'from', which is used at the start of the " ..
+        "selection. The right value is 'to', for the end. Within the " ..
+        "selection, the value used is an interpolation between the " ..
+        "'from' and 'to' values."
+    )
 
     _, count = imgui.InputInt("count", count, 1, 1, textFlags)
 
@@ -74,22 +83,30 @@ function draw()
 
     showCalculator(textFlags)
 
+    imgui.PushItemWidth(100)
     _, type = imgui.Combo("type", type, types, #types)
+    imgui.PopItemWidth()
+
+    if types[type + 1] ~= "linear" then
+        imgui.SameLine(0, padding)
+        imgui.PushItemWidth(100)
+        _, direction = imgui.Combo("direction", direction, dirs, #dirs)
+        imgui.PopItemWidth()
+    end
 
     if types[type + 1] == "elastic" then
-        _, ap = imgui.InputFloat2("args", { amp, period }, "%.2f", textFlags)
-        Tooltip("The elasticity severity and frequency, respectively.")
+        imgui.PushItemWidth(215)
+        _, ap = imgui.InputFloat2("amp/period", { amp, period }, "%.2f", textFlags)
+        imgui.PopItemWidth()
+        Tooltip("The elasticity severity, and frequency, respectively.")
         amp = ap[1]
         period = ap[2]
     end
 
-    if types[type + 1] ~= "linear" then
-        _, direction = imgui.Combo("direction", direction, dirs, #dirs)
-    end
-
     imgui.Separator()
-
+    imgui.PushItemWidth(100)
     _, after = imgui.Combo("after", after, afters, #afters)
+    imgui.PopItemWidth()
 
     Tooltip(
         "The mathematical operation to apply to every result " ..
@@ -99,7 +116,16 @@ function draw()
     local special = { atan = 0, log = 0, min = 0, max = 0, pow = 0 }
 
     if special[afters[after + 1]] then
+        imgui.SameLine(0, padding)
+        imgui.PushItemWidth(100)
         _, by = imgui.InputDouble("by", by, 0, 0, "%.2f", textFlags)
+        imgui.PopItemWidth()
+
+        Tooltip(
+            "This 'after' option is a binary operation, which means requiring " ..
+            "2 inputs. In this case, the first is the current SV, and the " ..
+            "second is this field."
+        )
     end
 
     imgui.Separator()
@@ -220,7 +246,10 @@ function showOneCalculator(i, precise)
 
     local key = "##calculate" .. tostring(i)
     local calculate = get(key, "") ---@type string
+
+    imgui.PushItemWidth(200)
     _, calculate = imgui.InputText(key, calculate, 100)
+    imgui.PopItemWidth()
 
     state.SetValue(key, calculate)
     local value, error = calculator()(calculate)
