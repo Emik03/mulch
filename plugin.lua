@@ -335,11 +335,20 @@ function showNoteInfo(show)
         not refresh then
         for i = 1, #objects, 1 do
             local obj = objects[i]
-            local positionString = lastSelectables[i]
+            local position = lastSelectables[i * 2]
 
-            if imgui.Selectable(toStringNotePretty(obj, positionString)) then
-                imgui.SetClipboardText(positionString)
-                print("Copied '" .. positionString .. "' to clipboard.")
+            if imgui.Selectable(noteString(obj, position, false)) then
+                imgui.SetClipboardText(position)
+                print("Copied '" .. position .. "' to clipboard.")
+            end
+
+            if obj.EndTime ~= 0 then
+                local position = lastSelectables[i * 2 + 1]
+
+                if imgui.Selectable(noteString(obj, position, true)) then
+                    imgui.SetClipboardText(position)
+                    print("Copied '" .. position .. "' to clipboard.")
+                end
             end
         end
     else
@@ -348,13 +357,24 @@ function showNoteInfo(show)
 
         for i = 1, #objects, 1 do
             local obj = objects[i]
-            local positionString = tostring(markers(obj.StartTime) / 100)
+            local position = tostring(markers(obj.StartTime) / 100)
+            lastSelectables[i * 2] = position
 
-            lastSelectables[i] = positionString
+            if imgui.Selectable(noteString(obj, position, false)) then
+                imgui.SetClipboardText(position)
+                print("Copied '" .. position .. "' to clipboard.")
+            end
 
-            if imgui.Selectable(toStringNotePretty(obj, positionString)) then
-                imgui.SetClipboardText(positionString)
-                print("Copied '" .. positionString .. "' to clipboard.")
+            if obj.EndTime == 0 then
+                lastSelectables[i * 2 + 1] = nil
+            else
+                local position = tostring(markers(obj.EndTime) / 100)
+                lastSelectables[i * 2 + 1] = position
+
+                if imgui.Selectable(noteString(obj, position, true)) then
+                    imgui.SetClipboardText(position)
+                    print("Copied '" .. position .. "' to clipboard.")
+                end
             end
         end
     end
@@ -720,6 +740,7 @@ function tween(f, from, to, amp, period, ease)
     if from == to then
         return from
     end
+
     return easings()[ease](f, from, to - from, 1, amp, period)
 end
 
@@ -751,8 +772,13 @@ end
 --- Converts a note to a string.
 --- @param obj HitObject
 --- @param mark string
-function toStringNotePretty(obj, mark)
-    return tostring(obj.StartTime) .. "|" .. tostring(obj.Lane) .. ": " .. mark
+--- @param fromStart boolean
+function noteString(obj, mark, fromEnd)
+    if fromEnd then
+        return tostring(obj.EndTime) .. "^  = " .. mark
+    end
+
+    return tostring(obj.StartTime) .. "|" .. tostring(obj.Lane) .. " = " .. mark
 end
 
 --- Gets the RGBA object of the provided hex value.
