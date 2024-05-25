@@ -111,7 +111,8 @@ function draw()
 
         imgui.PopItemWidth()
         Tooltip("The elasticity severity, and frequency, respectively.")
-        amp, period = ap
+        amp = ap[1]
+        period = ap[2]
     end
 
     imgui.Separator()
