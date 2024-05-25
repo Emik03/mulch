@@ -9,16 +9,31 @@
 --- @field StartTime number
 --- @field Multiplier number
 
-local afters = { "none", "abs", "acos", "asin", "atan", "ceil", "cos", "deg", "exp", "floor", "frac", "int", "log", "max",
-    "min", "modf", "pow", "rad", "random", "sin", "sqrt", "tan" }
-local types = { "linear", "quad", "cubic", "quart", "quint", "sine", "expo", "circ", "elastic", "back", "bounce" }
-local directions = { "in", "out", "inOut", "outIn" }
+local lastSize = { 0, 150 }
+local lastPosition = { 1635, 95 }
+local lastSelected = 0
+local textFlags
+
+local afters = {
+    "none", "abs", "acos", "asin", "atan", "ceil", "cos", "deg",
+    "exp", "floor", "frac", "int", "log", "max", "min", "modf",
+    "pow", "rad", "random", "sin", "sqrt", "tan"
+}
+
+local dirs = { "in", "out", "inOut", "outIn" }
+
+local types = {
+    "linear", "quad", "cubic", "quart", "quint", "sine",
+    "expo", "circ", "elastic", "back", "bounce"
+}
 
 -- The main function
 function draw()
+    textFlags = imgui_input_text_flags.CharsScientific
     imgui.Begin("mulch", imgui_window_flags.AlwaysAutoResize)
     Theme()
 
+    local padding = 10
     local from = get("from", 0) ---@type number
     local to = get("to", 1) ---@type number
     local count = get("count", 64) ---@type integer
@@ -31,69 +46,114 @@ function draw()
     local add = get("add", false) ---@type boolean
     local show = get("show", false) ---@type boolean
 
-    if imgui.Button("swap") or utils.IsKeyPressed(keys.U) then
-        from, to = to, from
-    end
+    ActionButton(
+        "swap",
+        "U",
+        function()
+            from, to = to, from
+        end,
+        { },
+        "Swaps the parameters for the 'from' and 'to' values."
+    )
 
-    Tooltip("Swaps the parameters for the 'from' and 'to' values. Alternatively, press U to perform this action.")
-    imgui.SameLine(0, 10)
+    imgui.SameLine(0, padding)
 
-    _, ft = imgui.InputFloat2("", { from, to })
+    _, ft = imgui.InputFloat2("", { from, to }, "%.2f", textFlags)
     from = ft[1]
     to = ft[2]
 
-    _, count = imgui.InputInt("count", count)
-    Tooltip("The resolution of the plot, and the number of SVs to place between each SV when 'per SV' is used.")
-    count = clamp(count, 1, 256)
+    _, count = imgui.InputInt("count", count, 1, 1, textFlags)
 
+    Tooltip(
+        "The resolution of the plot, and the number of SVs " ..
+        "to place between each SV when 'per SV' is used."
+    )
+
+    count = clamp(count, 1, 256)
     imgui.Separator()
 
     _, type = imgui.Combo("type", type, types, #types)
 
     if types[type + 1] == "elastic" then
-        _, ap = imgui.InputFloat2("args", { amp, period })
+        _, ap = imgui.InputFloat2("args", { amp, period }, "%.2f", textFlags)
         Tooltip("The elasticity severity and frequency, respectively.")
         amp = ap[1]
         period = ap[2]
     end
 
     if types[type + 1] ~= "linear" then
-        _, direction = imgui.Combo("direction", direction, directions, #directions)
+        _, direction = imgui.Combo("direction", direction, dirs, #dirs)
     end
 
     imgui.Separator()
 
     _, after = imgui.Combo("after", after, afters, #afters)
-    Tooltip("The mathematical operation to apply to every result of a tween calculation before SV placement.")
 
-    if ({ atan = true, log = true, min = true, max = true, pow = true })[afters[after + 1]] then
-        _, by = imgui.InputFloat("by", by)
+    Tooltip(
+        "The mathematical operation to apply to every result " ..
+        "of a tween calculation before SV placement."
+    )
+
+    local special = { atan = 0, log = 0, min = 0, max = 0, pow = 0 }
+
+    if special[afters[after + 1]] then
+        _, by = imgui.InputDouble("by", by, 0, 0, "%.2f", textFlags)
     end
 
     imgui.Separator()
 
     _, add = imgui.Checkbox("add instead", add)
-    Tooltip("Determines whether to add to existing SV amounts, instead of multiplying them.")
-    imgui.SameLine(0, 10)
 
-    _, show = imgui.Checkbox("measure", show)
-    Tooltip("Currently does nothing. WIP")
+    Tooltip(
+        "Determines whether to add to existing SV amounts, " ..
+        "instead of multiplying them."
+    )
+
+    imgui.SameLine(0, padding)
+
+    _, show = imgui.Checkbox("show note info", show)
+
+    Tooltip(
+        "When enabled, displays SV distance of selected notes in a window. " ..
+        "Potentially laggy when selecting close to the end, " ..
+        "hence disabled by default."
+    )
 
     imgui.Separator()
-
     local ease = fulleasename(type, direction)
 
-    ActionButton("section", "I", section, { from, to, add, after, by, amp, period, ease },
-        "'from' is applied from the start of the selection.\n'to' is applied to the end of the selection.")
-    imgui.SameLine(0, 10)
+    ActionButton(
+        "section",
+        "I",
+        section,
+        { from, to, add, after, by, amp, period, ease },
+        "'from' is applied from the start of the selection.\n" ..
+        "'to' is applied to the end of the selection."
+    )
 
-    ActionButton("per note", "O", perNote, { from, to, add, after, by, amp, period, ease },
-        "'from' is applied from the selected note.\n'to' is applied just before next selected note.")
-    imgui.SameLine(0, 10)
+    imgui.SameLine(0, padding)
 
-    ActionButton("per sv", "P", perSV, { from, to, add, after, ease, by, amp, period, count },
-        "Smear tool, adds SVs in-between existing SVs. 'from' and 'to' function identically to 'section'.")
+    ActionButton(
+        "per note",
+        "O",
+        perNote,
+        { from, to, add, after, by, amp, period, ease },
+        "'from' is applied from the selected note.\n" ..
+        "'to' is applied just before next selected note."
+    )
 
+    imgui.SameLine(0, padding)
+
+    ActionButton(
+        "per sv",
+        "P",
+        perSV,
+        { from, to, add, after, ease, by, amp, period, count },
+        "Smear tool, adds SVs in-between existing SVs." ..
+        "'from' and 'to' function identically to 'section'."
+    )
+
+    showNoteInfo(show)
     plot(from, to, add, after, by, amp, period, ease, count)
 
     state.SetValue("from", from)
@@ -111,6 +171,56 @@ function draw()
     imgui.End()
 end
 
+function showNoteInfo(show)
+    if not show then
+        return
+    end
+
+    local objects = state.SelectedHitObjects
+    local name = "mulch positions (" .. tostring(#objects) .. ")"
+    imgui.Begin(name)
+
+    if #objects ~= lastSelected then
+        imgui.SetWindowPos(name, lastPosition)
+        imgui.SetWindowSize(name, lastSize)
+    end
+
+    local relative = get("relative", false) ---@type boolean
+    local nsv = get("nsv", false) ---@type boolean
+
+    _, relative = imgui.Checkbox("relative", relative)
+
+    Tooltip(
+        "Distance will be relative to the first selected note, " ..
+        "making the first selected note always 0."
+    )
+
+    imgui.SameLine(0, 10)
+    _, nsv = imgui.Checkbox("nsv", nsv)
+    Tooltip("Distance is measured without considering SVs.")
+    imgui.Separator()
+
+    state.SetValue("relative", relative)
+    state.SetValue("nsv", nsv)
+
+    local markers = positionMarkers(relative, nsv)
+
+    for i = 1, #objects, 1 do
+        local positionString = tostring(markers(objects[i].StartTime) / 100)
+
+        if imgui.Selectable(tostring(objects[i].StartTime) .. "|" ..
+            tostring(objects[i].Lane) .. ": " .. positionString) then
+            imgui.SetClipboardText(positionString)
+            print("Copied " .. positionString .. " to clipboard.")
+        end
+    end
+
+    lastPosition = imgui.GetWindowPos(name)
+    lastSize = imgui.GetWindowSize(name)
+    lastSelected = #objects
+    imgui.End()
+end
+
 --- Creates a plot with the given parameters.
 --- @param from number
 --- @param to number
@@ -123,6 +233,7 @@ function plot(from, to, add, after, by, amp, period, ease, count)
     imgui.Begin("mulch plot", imgui_window_flags.AlwaysAutoResize)
 
     local heightValues = {}
+    heightValues[count + 1] = nil
     local max = -1 / 0
     local min = 1 / 0
 
@@ -131,7 +242,7 @@ function plot(from, to, add, after, by, amp, period, ease, count)
         local fm = tween(f, from, to, amp, period, ease)
         local a = addormul(1, fm, add)
         local v = afterfn(after, by)(a)
-        table.insert(heightValues, v)
+        heightValues[i + 1] = v
         max = math.max(v, max)
         min = math.min(v, min)
     end
@@ -141,7 +252,8 @@ function plot(from, to, add, after, by, amp, period, ease, count)
         heightValues,
         #heightValues,
         0,
-        ease .. ", " .. math.floor(min * 100 + 0.5) / 100 .. " to " .. math.floor(max * 100 + 0.5) / 100,
+        ease .. ", " .. math.floor(min * 100 + 0.5) / 100 .. " to " ..
+        math.floor(max * 100 + 0.5) / 100,
         min,
         max,
         { 300, 150 }
@@ -162,18 +274,21 @@ function section(from, to, add, after, by, amp, period, ease)
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
 
     if not svs[1] then
-        print("Please select the region you wish to modify before pressing this button.")
+        print("Please select the region to modify before pressing this button.")
         return
     end
 
     local svsToAdd = {}
+    svsToAdd[#svs] = nil
 
-    for _, sv in pairs(svs) do
-        local f = (sv.StartTime - svs[1].StartTime) / (svs[#svs].StartTime - svs[1].StartTime)
+    for i, sv in ipairs(svs) do
+        local f = (sv.StartTime - svs[1].StartTime) /
+            (svs[#svs].StartTime - svs[1].StartTime)
+
         local fm = tween(f, from, to, amp, period, ease)
         local a = addormul(sv.Multiplier, fm, add)
         local v = afterfn(after, by)(a)
-        table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, v))
+        svsToAdd[i] = utils.CreateScrollVelocity(sv.StartTime, v)
     end
 
     actions.PerformBatch({
@@ -194,19 +309,20 @@ function perNote(from, to, add, after, by, amp, period, ease)
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
 
     if not svs[1] then
-        print("Please select the region you wish to modify before pressing this button.")
+        print("Please select the region to modify before pressing this button.")
         return
     end
 
     local svsToAdd = {}
+    svsToAdd[#svs] = nil
 
-    for _, sv in pairs(svs) do
+    for i, sv in ipairs(svs) do
         local b, e = findAdjacentNotes(sv, offsets)
         local f = (sv.StartTime - b) / (e - b)
         local fm = tween(f, from, to, amp, period, ease)
         local a = addormul(sv.Multiplier, fm, add)
         local v = afterfn(after, by)(a)
-        table.insert(svsToAdd, utils.CreateScrollVelocity(sv.StartTime, v))
+        svsToAdd[i] = utils.CreateScrollVelocity(sv.StartTime, v)
     end
 
     actions.PerformBatch({
@@ -228,11 +344,12 @@ function perSV(from, to, add, after, ease, by, amp, period, count)
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
 
     if not svs[2] then
-        print("Your selected region must contain at least 2 SV points for this action to work.")
+        print("The selected region must contain at least 2 SV points.")
         return
     end
 
     local svsToAdd = {}
+    local last = 0
 
     for i, sv in ipairs(svs) do
         local n = svs[i + 1]
@@ -241,6 +358,8 @@ function perSV(from, to, add, after, ease, by, amp, period, count)
             break
         end
 
+        svsToAdd[last + count + 1] = nil
+
         for j = 0, count - 1, 1 do
             local f = j / (count - 1.0)
             local g = j / (count - 0.0)
@@ -248,16 +367,89 @@ function perSV(from, to, add, after, ease, by, amp, period, count)
             local gm = tween(g, sv.StartTime, n.StartTime, 0, 0, "linear")
             local a = addormul(sv.Multiplier, fm, add)
             local v = afterfn(after, by)(a)
-            table.insert(svsToAdd, utils.CreateScrollVelocity(gm, v))
+            last = last + 1
+            svsToAdd[last] = utils.CreateScrollVelocity(gm, v)
         end
     end
 
-    table.insert(svsToAdd, utils.CreateScrollVelocity(svs[#svs].StartTime, svs[#svs].Multiplier))
+    local final = svs[#svs]
+
+    svsToAdd[#svsToAdd + 1] = utils.CreateScrollVelocity(
+        final.StartTime,
+        final.Multiplier
+    )
 
     actions.PerformBatch({
         utils.CreateEditorAction(action_type.RemoveScrollVelocityBatch, svs),
         utils.CreateEditorAction(action_type.AddScrollVelocityBatch, svsToAdd)
     })
+end
+
+--- Creates a function that steps through the SVs to return the position for the
+--- note passed as milliseconds. If `nsv` is `false`, you must pass each number
+--- in ascending order, or else the function will return incorrect values.
+--- @param relative boolean
+--- @param nsv boolean
+--- @return function
+function positionMarkers(relative, nsv)
+    local first
+
+    if not relative then
+        first = 0
+    end
+
+    if nsv then
+        return function(time)
+            first = first or time
+            return math.floor(toF32((time - first) * 100))
+        end
+    end
+
+    local index = 2
+    local svs = map.ScrollVelocities
+    local pos = math.floor(toF32(svs[1].StartTime * 100))
+
+    return function(time)
+        if time < svs[1].StartTime then
+            first = first or ret
+            return math.floor(toF32((time - first) * 100))
+        end
+
+        while index < #svs and time >= svs[index].StartTime do
+            local prev = svs[index - 1]
+            local next = toF32(svs[index].StartTime - prev.StartTime)
+            next = toF32(next * prev.Multiplier)
+            next = toF32(next * 100)
+            pos = math.floor(toF32(pos + next))
+            index = index + 1
+        end
+
+        local sv = svs[index - 1] or svs[#svs]
+        local t = toF32(time - sv.StartTime)
+        t = toF32(t * sv.Multiplier)
+        local ret = pos + math.floor(toF32(t * 100))
+        first = first or ret
+        return ret - first
+    end
+end
+
+--- Casts the parameter to a single-precision float.
+--- @param x number
+--- @return number
+function toF32(x)
+    -- Lua doesn't support single-precision floats, which is tricky because
+    -- the game uses them for positioning. If we want our measure tool to be
+    -- accurate, we too need to convert our numbers to single-precision floats.
+    --
+    -- The following works because the function takes a single-precision float
+    -- that we can later access back. The way this function is intended to be
+    -- used is to wrap every calculation with this function.
+    --
+    -- This is because for any binary operation `(f32 x, f32 y) -> float`,
+    -- we can losslessly emulate it as `toF32((f64 x, f64 y) -> double)`.
+    -- This cast is required for every single operation, so `(x - y) * z`
+    -- cannot be `toF32((x - y) * z)`, but `toF32(toF32(x - y) * z)`.
+    return utils.CreateScrollVelocity(x, 0).StartTime
 end
 
 --- Removes duplicates from a table.
@@ -374,7 +566,7 @@ function fulleasename(type, direction)
         return "linear"
     end
 
-    return directions[direction + 1] .. types[type + 1]:gsub("^%l", string.upper)
+    return dirs[direction + 1] .. types[type + 1]:gsub("^%l", string.upper)
 end
 
 --- Adds or multiplies two numbers based on the condition.
@@ -429,7 +621,8 @@ function get(identifier, defaultValue)
     return state.GetValue(identifier) or defaultValue
 end
 
---- Gives the function to take the arc tangent of its argument by the argument passed in here.
+--- Gives the function to take the arc tangent of
+--- its argument by the argument passed in here.
 --- @param by number
 --- @return function
 function atan(by)
@@ -461,7 +654,8 @@ function int(x)
     return ret
 end
 
---- Gives the function to take the logarithm of its argument by the base of the argument passed in here.
+--- Gives the function to take the logarithm of its argument
+--- by the base of the argument passed in here.
 --- @param by number
 --- @return function
 function log(by)
@@ -470,7 +664,8 @@ function log(by)
     end
 end
 
---- Gives the function to take the max of its argument or the argument passed in here.
+--- Gives the function to take the max of its
+--- argument or the argument passed in here.
 --- @param by number
 --- @return function
 function max(by)
@@ -479,7 +674,8 @@ function max(by)
     end
 end
 
---- Gives the function to take the min of its argument or the argument passed in here.
+--- Gives the function to take the min of its
+--- argument or the argument passed in here.
 --- @param by number
 --- @return function
 function min(by)
@@ -488,7 +684,8 @@ function min(by)
     end
 end
 
---- Gives the function to take the its argument to the power of the argument passed in here.
+--- Gives the function to take the its argument
+--- to the power of the argument passed in here.
 --- @param by number
 --- @return function
 function pow(by)
@@ -497,7 +694,8 @@ function pow(by)
     end
 end
 
---- Generates a random number starting or ending the number, depending on its sign.
+--- Generates a random number starting or ending
+--- the number, depending on its sign.
 --- @param x number
 --- @return number
 function random(x)
@@ -515,12 +713,31 @@ function ActionButton(label, key, fn, tbl, msg)
         fn(table.unpack(tbl))
     end
 
-    Tooltip(msg .. " Alternatively, press " .. key .. " to perform this action.")
+    Tooltip(
+        msg .. " Alternatively, press " .. key .. " to perform this action."
+    )
+end
+
+--- Creates a tooltip hoverable element.
+--- @param text string
+function Tooltip(text)
+    imgui.SameLine(0, 5)
+    imgui.TextDisabled("(?)")
+
+    if not imgui.IsItemHovered() then
+        return
+    end
+
+    imgui.BeginTooltip()
+    imgui.PushTextWrapPos(imgui.GetFontSize() * 20)
+    imgui.Text(text)
+    imgui.PopTextWrapPos()
+    imgui.EndTooltip()
 end
 
 --- Applies the theme.
 function Theme()
-    -- Accent colors are unused, but are here in case if you want to change that.
+    -- Accent colors are unused, but are here if you wish to change that.
     -- local green = rgb("#50FA7B")
     -- local orange = rgb("#FFB86C")
     -- local pink = rgb("#FF79C6")
@@ -588,7 +805,7 @@ function Theme()
 
     imgui.PushStyleVar(imgui_style_var.Alpha, 1)
     imgui.PushStyleVar(imgui_style_var.WindowBorderSize, 0)
-    imgui.PushStyleVar(imgui_style_var.WindowMinSize, { 0, 0 })
+    imgui.PushStyleVar(imgui_style_var.WindowMinSize, { 240, 0 })
     imgui.PushStyleVar(imgui_style_var.WindowTitleAlign, { 0, 0.4 })
     imgui.PushStyleVar(imgui_style_var.ChildRounding, rounding)
     imgui.PushStyleVar(imgui_style_var.ChildBorderSize, 0)
@@ -601,29 +818,12 @@ function Theme()
     imgui.PushStyleVar(imgui_style_var.ItemInnerSpacing, spacing)
     imgui.PushStyleVar(imgui_style_var.ItemInnerSpacing, spacing)
     imgui.PushStyleVar(imgui_style_var.IndentSpacing, spacing)
-    imgui.PushStyleVar(imgui_style_var.ScrollbarSize, 0)
+    imgui.PushStyleVar(imgui_style_var.ScrollbarSize, 10)
     imgui.PushStyleVar(imgui_style_var.ScrollbarRounding, rounding)
     imgui.PushStyleVar(imgui_style_var.GrabMinSize, 0)
     imgui.PushStyleVar(imgui_style_var.GrabRounding, rounding)
     imgui.PushStyleVar(imgui_style_var.TabRounding, rounding)
     imgui.PushStyleVar(imgui_style_var.ButtonTextAlign, { 0.5, 0.5 })
-end
-
---- Creates a tooltip hoverable element.
---- @param text string
-function Tooltip(text)
-    imgui.SameLine(0, 4)
-    imgui.TextDisabled("(?)")
-
-    if not imgui.IsItemHovered() then
-        return
-    end
-
-    imgui.BeginTooltip()
-    imgui.PushTextWrapPos(imgui.GetFontSize() * 20)
-    imgui.Text(text)
-    imgui.PopTextWrapPos()
-    imgui.EndTooltip()
 end
 
 --- Returns an object for easings.
