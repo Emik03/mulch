@@ -85,7 +85,6 @@ function draw()
 
     count = clamp(count, 1, 256)
     imgui.Separator()
-
     showCalculator(textFlags)
 
     imgui.PushItemWidth(100)
@@ -1663,5 +1662,7 @@ function calculator()
         return parts[1], expression
     end
 
-    return parseExpression
+    return function(x)
+        parseExpression(x:gsub("%s", ""))
+    end
 end
