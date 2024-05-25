@@ -7,7 +7,7 @@ A plugin that sculpts and shapes SVs with tweeners for the video game [Quaver](h
 
 Originally named `mul` as a shortening of "multiply". However with the inclusion of the ability to add, its name became misleading.
 
-![image](https://github.com/Emik03/mulch/assets/14614115/f0dcf90f-959f-4f20-a2cc-44b783593b19)
+![image](https://github.com/Emik03/mulch/assets/14614115/524978fa-e747-4b4b-a750-edfea2b57b5d)
 
 ### Features
 
