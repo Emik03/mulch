@@ -1,5 +1,6 @@
 # mulch
 
+[![Workshop](https://img.shields.io/steam/downloads/3254465397?color=8be9fd&logo=Steam&style=for-the-badge)](https://steamcommunity.com/sharedfiles/filedetails/?id=3254465397)
 [![Release](https://img.shields.io/github/v/release/Emik03/mulch.svg?color=f8f9f2&logo=GitHub&style=for-the-badge)](https://github.com/Emik03/mulch/releases/latest)
 [![License](https://img.shields.io/github/license/Emik03/mulch.svg?color=6272a4&style=for-the-badge)](https://github.com/Emik03/mulch/blob/main/LICENSE)
 
@@ -11,12 +12,15 @@ Originally named `mul` as a shortening of "multiply". However with the inclusion
 
 ### Features
 
-- Support for [all common eases](https://easings.net/).
-- The ability to apply the ease over the entire section, or treating each note as its own section.
-- Keyboard shortcuts (`UIOP`), including swapping `from` and `to`, as well as performing the 3 types of actions.
-- Functionality to add in-between SVs — also known as smearing — to existing SVs.
-- A toggle to specify adding or multiplying to the existing SV.
-- Convenient plot to preview how your SVs will be shaped.
+- Scale selected SVs with a tweener, including support for [all common eases](https://easings.net/).
+- Apply the ease over the entire section, or treating each selected note as its own section for maximum convenience.
+- Use the keyboard shortcuts (`UIOP`), including swapping `from` and `to`, as well as performing the 3 types of actions.
+- Add in-between SVs — also known as smearing — to existing SVs.
+- Specify with a toggle to add or multiply to the existing SV.
+- Preview the tween with a convenient plot thanks to [Sweetplum](https://github.com/ESV-Sweetplum), to preview how your SVs will be shaped.
+- Use the built-in calculator to quickly evaluate expressions, without the need to ever tab out of the game.
+- Use that same calculator tool to store reoccuring numbers, by creating as many instances of calculators as you desire.
+- Ever had broken displacements? Need to align notes with each other? The measure tool can tell you relative and absolute positioning, with game-accurate precision.
 
 ### Credits
 
