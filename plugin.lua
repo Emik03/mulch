@@ -271,16 +271,17 @@ function showOneCalculator(i, precise)
     imgui.PopItemWidth()
 
     state.SetValue(key, calculate)
-    local value, error = calculator()(calculate)
 
-    if #calculate ~= 0 then
-        imgui.SameLine(0, 10)
-    end
+    local value, err = calculator()(calculate)
 
     if value then
         value = string.format(format, value):
           gsub("(%..-)0*$", "%1"):
           gsub("%.$", "")
+    end
+
+    if #calculate ~= 0 then
+        imgui.SameLine(0, 10)
     end
 
     if #calculate ~= 0 and imgui.Button(value or ":c") then
@@ -290,7 +291,7 @@ function showOneCalculator(i, precise)
             imgui.SetClipboardText(value)
             print("Copied '" .. value .. "' to clipboard.")
         else
-            print(error)
+            print(err)
         end
     end
 end
@@ -1663,6 +1664,7 @@ function calculator()
     end
 
     return function(x)
-        parseExpression(x:gsub("%s", ""))
+        local x, _ = x:gsub("%s", "")
+        return parseExpression(x)
     end
 end
