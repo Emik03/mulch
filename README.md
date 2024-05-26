@@ -1,7 +1,7 @@
 # mulch
 
-[![Workshop](https://img.shields.io/steam/downloads/3254465397?color=8be9fd&logo=Steam&style=for-the-badge)](https://steamcommunity.com/sharedfiles/filedetails/?id=3254465397)
 [![Release](https://img.shields.io/github/v/release/Emik03/mulch.svg?color=f8f9f2&logo=GitHub&style=for-the-badge)](https://github.com/Emik03/mulch/releases/latest)
+[![Workshop](https://img.shields.io/steam/downloads/3254465397?color=8be9fd&logo=Steam&style=for-the-badge)](https://steamcommunity.com/sharedfiles/filedetails/?id=3254465397)
 [![License](https://img.shields.io/github/license/Emik03/mulch.svg?color=6272a4&style=for-the-badge)](https://github.com/Emik03/mulch/blob/main/LICENSE)
 
 A plugin that sculpts and shapes SVs with tweeners for the video game [Quaver](https://github.com/Quaver/Quaver).
