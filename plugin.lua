@@ -585,8 +585,8 @@ function positionMarkers(relative, nsv)
             end
         end
 
-        if time < svs[1].StartTime then
-            first = first or ret
+        if #svs == 0 or time < svs[1].StartTime then
+            first = first or time
             return math.floor(toF32((time - first) * 100))
         end
 
