@@ -49,116 +49,153 @@ function draw()
     local by = get("by", math.exp(1)) ---@type number
     local add = get("add", false) ---@type boolean
     local show = get("show", false) ---@type boolean
+    local advanced = get("advanced", false) ---@type boolean
 
-    ActionButton(
-        "swap",
-        "U",
-        function()
-            from, to = to, from
-        end,
-        { },
-        "Swaps the parameters for the 'from' and 'to' values."
-    )
+    imgui.BeginTabBar("mode")
 
-    imgui.SameLine(0, padding)
+    if imgui.BeginTabItem("simple") then
+    	imgui.EndTabItem()
+    	advanced = false
+    end
+
+    if imgui.BeginTabItem("advanced") then
+    	imgui.EndTabItem()
+    	advanced = true
+    end
+
+    imgui.EndTabBar()
+
+    if advanced then
+        ActionButton(
+            "swap",
+            "U",
+            function()
+                from, to = to, from
+            end,
+            { },
+            "Swaps the parameters for the 'from' and 'to' values."
+        )
+
+        imgui.SameLine(0, padding)
+    end
+
+    local fromToText = ""
+
+    if advanced then
+    	fromToText = "from/to"
+    end
 
     imgui.PushItemWidth(165)
-    local _, ft = imgui.InputFloat2("from/to", { from, to }, "%.2f", textFlags)
+    local _, ft = imgui.InputFloat2(fromToText, { from, to }, "%.2f", textFlags)
     imgui.PopItemWidth()
     from = ft[1]
     to = ft[2]
+
+    local tooltipPaddingOverride = nil
+
+    if not advanced then
+    	tooltipPaddingOverride = 180
+    end
 
     Tooltip(
         "The left field is 'from', which is used at the start of the " ..
         "selection. The right value is 'to', for the end. Within the " ..
         "selection, the value used is an interpolation between the " ..
-        "'from' and 'to' values."
+        "'from' and 'to' values.",
+        tooltipPaddingOverride
     )
 
-    _, count = imgui.InputInt("count", count, 1, 1, textFlags)
+    local ease
 
-    Tooltip(
-        "The resolution of the plot, and the number of SVs " ..
-        "to place between each SV when 'per SV' is used."
-    )
+    if advanced then
+        _, count = imgui.InputInt("count", count, 1, 1, textFlags)
 
-    count = clamp(count, 1, 256)
-    imgui.Separator()
-    ShowCalculator()
-
-    imgui.PushItemWidth(100)
-    _, type = imgui.Combo("type", type, types, #types)
-    imgui.PopItemWidth()
-
-    if types[type + 1] ~= "linear" then
-        imgui.SameLine(0, padding)
-        imgui.PushItemWidth(100)
-        _, direction = imgui.Combo("direction", direction, dirs, #dirs)
-        imgui.PopItemWidth()
-    end
-
-    if types[type + 1] == "elastic" then
-        imgui.PushItemWidth(215)
-
-        _, ap = imgui.InputFloat2(
-            "amp/period",
-            { amp, period },
-            "%.2f",
-            textFlags
+        Tooltip(
+            "The resolution of the plot, and the number of SVs " ..
+            "to place between each SV when 'per SV' is used."
         )
 
-        imgui.PopItemWidth()
-        Tooltip("The elasticity severity, and frequency, respectively.")
-        amp = ap[1]
-        period = ap[2]
-    end
+        count = clamp(count, 1, 256)
+        imgui.Separator()
+        ShowCalculator()
 
-    imgui.Separator()
-    imgui.PushItemWidth(100)
-    _, after = imgui.Combo("after", after, afters, #afters)
-    imgui.PopItemWidth()
-
-    Tooltip(
-        "The mathematical operation to apply to every result " ..
-        "of a tween calculation before SV placement."
-    )
-
-    local special = { atan = 0, log = 0, min = 0, max = 0, pow = 0 }
-
-    if special[afters[after + 1]] then
-        imgui.SameLine(0, padding)
         imgui.PushItemWidth(100)
-        _, by = imgui.InputDouble("by", by, 0, 0, "%.2f", textFlags)
+        _, type = imgui.Combo("type", type, types, #types)
+        imgui.PopItemWidth()
+
+        if types[type + 1] ~= "linear" then
+            imgui.SameLine(0, padding)
+            imgui.PushItemWidth(100)
+            _, direction = imgui.Combo("direction", direction, dirs, #dirs)
+            imgui.PopItemWidth()
+        end
+
+        if types[type + 1] == "elastic" then
+            imgui.PushItemWidth(215)
+
+            _, ap = imgui.InputFloat2(
+                "amp/period",
+                { amp, period },
+                "%.2f",
+                textFlags
+            )
+
+            imgui.PopItemWidth()
+            Tooltip("The elasticity severity, and frequency, respectively.")
+            amp = ap[1]
+            period = ap[2]
+        end
+
+        imgui.Separator()
+        imgui.PushItemWidth(100)
+        _, after = imgui.Combo("after", after, afters, #afters)
         imgui.PopItemWidth()
 
         Tooltip(
-            "This 'after' option is a binary operation, which means requiring " ..
-            "2 inputs. In this case, the first is the current SV, and the " ..
-            "second is this field."
+            "The mathematical operation to apply to every result " ..
+            "of a tween calculation before SV placement."
         )
+
+        local special = { atan = 0, log = 0, min = 0, max = 0, pow = 0 }
+
+        if special[afters[after + 1]] then
+            imgui.SameLine(0, padding)
+            imgui.PushItemWidth(100)
+            _, by = imgui.InputDouble("by", by, 0, 0, "%.2f", textFlags)
+            imgui.PopItemWidth()
+
+            Tooltip(
+                "This 'after' option is a binary operation, which means requiring " ..
+                "2 inputs. In this case, the first is the current SV, and the " ..
+                "second is this field."
+            )
+        end
+
+        imgui.Separator()
+
+        _, add = imgui.Checkbox("add instead", add)
+
+        Tooltip(
+            "Determines whether to add to existing SV amounts, " ..
+            "instead of multiplying them."
+        )
+
+        imgui.SameLine(0, padding)
+
+        _, show = imgui.Checkbox("show note info", show)
+
+        Tooltip(
+            "When enabled, displays SV distance of selected notes in a window. " ..
+            "Potentially laggy when selecting close to the end, " ..
+            "hence disabled by default."
+        )
+
+        ease = fulleasename(type, direction)
+    else
+        ease = "linear"
     end
 
     imgui.Separator()
-
-    _, add = imgui.Checkbox("add instead", add)
-
-    Tooltip(
-        "Determines whether to add to existing SV amounts, " ..
-        "instead of multiplying them."
-    )
-
-    imgui.SameLine(0, padding)
-
-    _, show = imgui.Checkbox("show note info", show)
-
-    Tooltip(
-        "When enabled, displays SV distance of selected notes in a window. " ..
-        "Potentially laggy when selecting close to the end, " ..
-        "hence disabled by default."
-    )
-
-    imgui.Separator()
-    local ease = fulleasename(type, direction)
 
     ActionButton(
         "section",
@@ -180,19 +217,21 @@ function draw()
         "'to' is applied just before next selected note."
     )
 
-    imgui.SameLine(0, padding)
+    if advanced then
+        imgui.SameLine(0, padding)
 
-    ActionButton(
-        "per sv",
-        "P",
-        perSV,
-        { from, to, add, after, ease, by, amp, period, count },
-        "Smear tool, adds SVs in-between existing SVs." ..
-        "'from' and 'to' function identically to 'section'."
-    )
+        ActionButton(
+            "per sv",
+            "P",
+            perSV,
+            { from, to, add, after, ease, by, amp, period, count },
+            "Smear tool, adds SVs in-between existing SVs." ..
+            "'from' and 'to' function identically to 'section'."
+        )
 
-    ShowNoteInfo(show)
-    Plot(from, to, add, after, by, amp, period, ease, count)
+        ShowNoteInfo(show)
+        Plot(from, to, add, after, by, amp, period, ease, count)
+    end
 
     state.SetValue("from", from)
     state.SetValue("to", to)
@@ -205,6 +244,7 @@ function draw()
     state.SetValue("by", by)
     state.SetValue("add", add)
     state.SetValue("show", show)
+    state.SetValue("advanced", advanced)
 
     imgui.End()
 end
@@ -910,8 +950,14 @@ end
 
 --- Creates a tooltip hoverable element.
 --- @param text string
-function Tooltip(text)
-    imgui.SameLine(0, 5)
+--- @param paddingOverride number | nil
+function Tooltip(text, paddingOverride)
+    if paddingOverride then
+        imgui.SameLine(paddingOverride, 0)
+    else
+        imgui.SameLine(0, 5)
+    end
+
     imgui.TextDisabled("(?)")
 
     if not imgui.IsItemHovered() then
@@ -941,7 +987,7 @@ function Theme()
     local current = rgb("#44475A")
     local foreground = rgb("#F8F8F2")
     local comment = rgb("#6272A4")
-    local rounding = 25
+    local rounding = 10
     local spacing = { 10, 10 }
 
     imgui.PushStyleColor(imgui_col.Text, foreground)
