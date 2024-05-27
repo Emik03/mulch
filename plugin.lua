@@ -10,20 +10,23 @@
 --- @field Multiplier number
 
 local lastPosition = { 1635, 95 }
+local lastOffsetOfFirstNote = 0
 local lastSize = { 0, 200 }
 local lastSelectables = {}
-local lastRelative = false
 local lastCustomFunction
 local lastCustomString
 local lastSelected = 0
 local lastShow = false
-local lastNsv = false
 local lastPeriod = 0
 local lastAfter = 0
 local lastCount = 0
+local lastOrder = 0
 local lastEase = ""
 local lastFrom = 0
+local lastMode = 0
+local lastTerm = 0
 local heightValues
+local lastSort = 0
 local lastOp = 0
 local lastAmp = 0
 local lastBy = 0
@@ -39,8 +42,11 @@ local afters = {
 }
 
 local dirs = { "in", "out", "inOut", "outIn" }
-
+local modes = { "relative", "absolute" }
 local ops = { "multiply", "add", "replace" }
+local orders = { "ascending", "descending" }
+local terms = { "sort nm", "sort nsv" }
+local sorts = { "timing", "positioning" }
 
 local types = {
     "linear", "quad", "cubic", "quart", "quint", "sine",
@@ -410,10 +416,10 @@ end
 --- Creates a function that steps through the SVs to return the position for the
 --- note passed as milliseconds. If `nsv` is `false`, you must pass each number
 --- in ascending order, or else the function will return incorrect values.
---- @param relative boolean
 --- @param nsv boolean
+--- @param relative boolean
 --- @return function
-function positionMarkers(relative, nsv)
+function positionMarkers(nsv, relative)
     local first
 
     if not relative then
@@ -642,14 +648,15 @@ end
 
 --- Converts a note to a string.
 --- @param obj HitObjectInfo
---- @param mark string
+--- @param pos number
 --- @param fromEnd boolean
-function noteString(obj, mark, fromEnd)
+function noteString(obj, pos, fromEnd)
     if fromEnd then
-        return tostring(obj.EndTime) .. "^  = " .. mark
+        return tostring(obj.EndTime) .. "^  = " .. tostring(pos) .. " msx"
     end
 
-    return tostring(obj.StartTime) .. "|" .. tostring(obj.Lane) .. " = " .. mark
+    return tostring(obj.StartTime) .. "|" ..
+        tostring(obj.Lane) .. " = " .. tostring(pos) .. " msx"
 end
 
 --- Gets the RGBA object of the provided hex value.
@@ -936,86 +943,148 @@ function ShowNoteInfo(show)
     end
 
     local objects = state.SelectedHitObjects
-    local name = "mulch positions (" .. tostring(#objects) .. " selected)"
+    local name = "mulch position (" .. tostring(#objects) .. ")"
+
+    imgui.PushStyleVar(imgui_style_var.WindowMinSize, { 220, 265 })
     imgui.Begin(name)
+    imgui.PopStyleVar(imgui_style_var.WindowMinSize)
 
     if #objects ~= lastSelected then
         imgui.SetWindowPos(name, lastPosition)
         imgui.SetWindowSize(name, lastSize)
     end
 
-    local relative = get("relative", false) ---@type boolean
-    local nsv = get("nsv", false) ---@type boolean
-    _, relative = imgui.Checkbox("relative", relative)
+    local term = get("term", 0) ---@type number
+    local mode = get("mode", 0) ---@type number
+    local order = get("order", 0) ---@type number
+    local sort = get("sort", 0) ---@type number
+
+    imgui.PushItemWidth(125)
+    _, term = imgui.Combo("by", term, terms, #terms)
+    Tooltip("Whether distance is measured with or without considering SVs.")
+
+    local modeLabel = "time in"
+
+    if term == 0 then
+        modeLabel = "    "
+    end
+
+    _, mode = imgui.Combo(modeLabel, mode, modes, #modes)
 
     Tooltip(
-        "Distance will be relative to the first selected note, " ..
-        "making the first selected note always 0."
+        "Refers to categorization of 0. Either the first note's position, " ..
+        "which is considered relative, or from the start of the chart, " ..
+        "which is considered absolute."
     )
 
-    imgui.SameLine(0, 10)
-    _, nsv = imgui.Checkbox("nsv", nsv)
-    Tooltip("Distance is measured without considering SVs.")
+    if term == 0 then
+        _, sort = imgui.Combo("in", sort, sorts, #sorts)
+
+        Tooltip(
+            "Whether to sort based on the time of each note, or the " ..
+            "position in which a note is placed in the chart."
+        )
+    end
+
+    _, order = imgui.Combo("order", order, orders, #orders)
+
+    Tooltip(
+        "Ascending refers to lowest to highest, " ..
+        "while descending refers to highest to lowest."
+    )
+
+    imgui.PopItemWidth()
     imgui.Separator()
+
+    if sort ~= lastSort or order ~= lastOrder then
+        lastSort = sort
+        lastOrder = order
+
+        table.sort(
+            lastSelectables,
+            function(x, y)
+                if not x then
+                    return false
+                end
+
+                if not y then
+                    return true
+                end
+
+                if sort == 0 then
+                    return x.time < y.time == (order == 1)
+                end
+
+                return x.position < y.position == (order == 1)
+            end
+        )
+    end
 
     if #objects == 0 then
     elseif #objects == lastSelected and
-        lastNsv == nsv and
-        lastRelative == relative and
+        objects[1].StartTime == lastOffsetOfFirstNote and
+        mode == lastMode and
+        term == lastTerm and
         not refresh then
-        for i = 1, #objects, 1 do
-            local obj = objects[i]
-            local position = lastSelectables[i * 2]
-
-            if imgui.Selectable(noteString(obj, position, false)) then
-                imgui.SetClipboardText(position)
-                print("Copied '" .. position .. "' to clipboard.")
-            end
-
-            if obj.EndTime ~= 0 then
-                position = lastSelectables[i * 2 + 1]
-
-                if imgui.Selectable(noteString(obj, position, true)) then
-                    imgui.SetClipboardText(position)
-                    print("Copied '" .. position .. "' to clipboard.")
-                end
+        for _, v in ipairs(lastSelectables) do
+            if v and imgui.Selectable(v.string) then
+                imgui.SetClipboardText(v.position)
+                print("Copied '" .. v.position .. "' to clipboard.")
             end
         end
     else
-        lastSelectables[#objects] = nil
-        local markers = positionMarkers(relative, nsv)
+        lastSelectables = {}
+        lastSelectables[#objects * 2] = false
+        local markers = positionMarkers(mode == 1, term == 0)
 
         for i = 1, #objects, 1 do
             local obj = objects[i]
-            local position = tostring(markers(obj.StartTime) / 100)
-            lastSelectables[i * 2] = position
+            local position = markers(obj.StartTime)
 
-            if imgui.Selectable(noteString(obj, position, false)) then
+            local start = {
+                time = obj.StartTime,
+                position = position,
+                string = noteString(obj, position / 100, false)
+            }
+
+            lastSelectables[i * 2 - 1] = start
+
+            if imgui.Selectable(start.string) then
                 imgui.SetClipboardText(position)
                 print("Copied '" .. position .. "' to clipboard.")
             end
 
             if obj.EndTime == 0 then
-                lastSelectables[i * 2 + 1] = nil
+                lastSelectables[i * 2] = false
             else
-                position = tostring(markers(obj.EndTime) / 100)
-                lastSelectables[i * 2 + 1] = position
+                local endPosition = markers(obj.EndTime)
 
-                if imgui.Selectable(noteString(obj, position, true)) then
-                    imgui.SetClipboardText(position)
-                    print("Copied '" .. position .. "' to clipboard.")
+                local ending = {
+                    time = obj.EndTime,
+                    position = endPosition,
+                    string = noteString(obj, endPosition / 100, true)
+                }
+
+                lastSelectables[i * 2 + 1] = ending
+
+                if imgui.Selectable(ending.string) then
+                    imgui.SetClipboardText(endPosition)
+                    print("Copied '" .. endPosition .. "' to clipboard.")
                 end
             end
         end
     end
 
-    state.SetValue("relative", relative)
-    state.SetValue("nsv", nsv)
+    state.SetValue("mode", mode)
+    state.SetValue("term", term)
+    state.SetValue("order", order)
+    state.SetValue("sort", sort)
     lastPosition = imgui.GetWindowPos(name)
     lastSize = imgui.GetWindowSize(name)
     lastSelected = #objects
-    lastRelative = relative
-    lastNsv = nsv
+    lastMode = mode
+    lastTerm = term
+    lastOffsetOfFirstNote = (objects[1] or { StartTime = 0 }).StartTime
     imgui.End()
 end
 
@@ -1112,7 +1181,7 @@ function Theme()
 
     imgui.PushStyleVar(imgui_style_var.Alpha, 1)
     imgui.PushStyleVar(imgui_style_var.WindowBorderSize, 0)
-    imgui.PushStyleVar(imgui_style_var.WindowMinSize, { 240, 0 })
+    imgui.PushStyleVar(imgui_style_var.WindowMinSize, { 0, 0 })
     imgui.PushStyleVar(imgui_style_var.WindowTitleAlign, { 0, 0.4 })
     imgui.PushStyleVar(imgui_style_var.ChildRounding, rounding)
     imgui.PushStyleVar(imgui_style_var.ChildBorderSize, 0)
