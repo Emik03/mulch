@@ -970,9 +970,9 @@ function ShowNoteInfo(show)
     end
 
     local objects = state.SelectedHitObjects
-    local name = "mulch position (" .. tostring(#objects) .. ")"
+    local name = "mulch position"
 
-    imgui.PushStyleVar(imgui_style_var.WindowMinSize, { 220, 360 })
+    imgui.PushStyleVar(imgui_style_var.WindowMinSize, { 220, 390 })
     imgui.Begin(name)
     imgui.PopStyleVar(imgui_style_var.WindowMinSize)
 
@@ -1034,6 +1034,22 @@ function ShowNoteInfo(show)
         from = vs[1]
         to = vs[2]
     end
+
+    imgui.Separator()
+
+    if #objects == 0 then
+        imgui.Text("No hit objects selected.")
+    elseif #objects == 1 then
+        imgui.Text("1 hit object selected.")
+    else
+        imgui.Text(tostring(#objects) .. " hit objects selected.")
+    end
+
+    Tooltip(
+        "Any of the numbers below can be left-clicked to copy their msx " ..
+        "value onto your clipboard. Use the middle or right mouse button to " ..
+        "copy the note instead, usable in \"Tools\" > \"Go To Objects\"."
+    )
 
     imgui.Separator()
 
