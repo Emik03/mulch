@@ -11,7 +11,8 @@
         "action_type",
         "map",
         "keys",
-        "imgui_col"
+        "imgui_col",
+        "imgui_tab_bar_flags"
     ],
     "diagnostics.disable": [
         "lowercase-global"

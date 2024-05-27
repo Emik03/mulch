@@ -51,7 +51,7 @@ function draw()
     local show = get("show", false) ---@type boolean
     local advanced = get("advanced", false) ---@type boolean
 
-    imgui.BeginTabBar("mode")
+    imgui.BeginTabBar("mode", imgui_tab_bar_flags.NoTooltip)
 
     if imgui.BeginTabItem("simple") then
     	imgui.EndTabItem()
