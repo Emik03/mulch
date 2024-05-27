@@ -45,7 +45,7 @@ local afters = {
 local dirs = { "in", "out", "inOut", "outIn" }
 local modes = { "absolute", "relative" }
 local inclusives = { "unfiltered", "within", "not within" }
-local ops = { "multiply", "add", "divide", "subtract", "modulo", "replace" }
+local ops = { "multiply", "add", "subtract", "divide", "modulo", "replace" }
 local orders = { "ascending", "descending" }
 local terms = { "sort nm", "sort nsv" }
 local sorts = { "timing", "positioning" }
@@ -646,11 +646,11 @@ function handleOperation(x, y, op)
     end
 
     if op == 2 then
-        return x / y
+        return x - y
     end
 
     if op == 3 then
-        return x - y
+        return x / y
     end
 
     if op == 4 then
