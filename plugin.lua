@@ -24,7 +24,7 @@ local lastCount = 0
 local lastEase = ""
 local lastFrom = 0
 local heightValues
-local lastAdd = false
+local lastOp = 0
 local lastAmp = 0
 local lastBy = 0
 local lastTo = 0
@@ -40,6 +40,8 @@ local afters = {
 
 local dirs = { "in", "out", "inOut", "outIn" }
 
+local ops = { "multiply", "add", "replace" }
+
 local types = {
     "linear", "quad", "cubic", "quart", "quint", "sine",
     "expo", "circ", "elastic", "back", "bounce", "custom"
@@ -52,6 +54,7 @@ function draw()
     Theme()
 
     local padding = 10
+    local dropdownWidth = 103
     local from = get("from", 0) ---@type number
     local to = get("to", 1) ---@type number
     local count = get("count", 128) ---@type integer
@@ -61,7 +64,7 @@ function draw()
     local period = get("period", 1) ---@type number
     local after = get("after", 0) ---@type integer
     local by = get("by", math.exp(1)) ---@type number
-    local add = get("add", false) ---@type boolean
+    local op = get("op", 0) ---@type number
     local show = get("show", false) ---@type boolean
     local advanced = get("advanced", false) ---@type boolean
     local custom = get("custom", "") ---@type string
@@ -109,7 +112,7 @@ function draw()
     local tooltipPaddingOverride = nil
 
     if not advanced then
-    	tooltipPaddingOverride = 180
+    	tooltipPaddingOverride = 177
     end
 
     Tooltip(
@@ -134,13 +137,13 @@ function draw()
         imgui.Separator()
         ShowCalculator()
 
-        imgui.PushItemWidth(100)
+        imgui.PushItemWidth(dropdownWidth)
         _, type = imgui.Combo("type", type, types, #types)
         imgui.PopItemWidth()
 
         if not ({ custom = 0, linear = 0 })[types[type + 1]] then
             imgui.SameLine(0, padding)
-            imgui.PushItemWidth(100)
+            imgui.PushItemWidth(dropdownWidth)
             _, direction = imgui.Combo("direction", direction, dirs, #dirs)
             imgui.PopItemWidth()
         end
@@ -163,22 +166,24 @@ function draw()
 
         if types[type + 1] == "custom" then
             imgui.SameLine(0, padding)
-            imgui.PushItemWidth(153)
-            _, custom = imgui.InputText("", custom, 100)
+            imgui.PushItemWidth(150)
+            _, custom = imgui.InputText("", custom, 1000)
             imgui.PopItemWidth()
 
             Tooltip(
                 "Specify a custom easing function here. The same operators " ..
                 "supported in the mulch calculator are supported here, " ..
-                "but with added variables:\n" ..
-                "t = elapsed time: [0, 1]\n" ..
+                "but with added variables:\n\n" ..
+                "t = time: [0, 1]\n" ..
                 "b = begin: 'from' parameter\n" ..
-                "c = change: 'to' - 'from'\n"
+                "c = change: 'to' - 'from'\n" ..
+                "d = duration: always 1\n" ..
+                "v = velocity: current SV multiplier"
             )
         end
 
         imgui.Separator()
-        imgui.PushItemWidth(100)
+        imgui.PushItemWidth(dropdownWidth)
         _, after = imgui.Combo("after", after, afters, #afters)
         imgui.PopItemWidth()
 
@@ -191,7 +196,7 @@ function draw()
 
         if special[afters[after + 1]] then
             imgui.SameLine(0, padding)
-            imgui.PushItemWidth(100)
+            imgui.PushItemWidth(dropdownWidth)
             _, by = imgui.InputDouble("by", by, 0, 0, "%.2f", textFlags)
             imgui.PopItemWidth()
 
@@ -202,18 +207,14 @@ function draw()
             )
         end
 
-        imgui.Separator()
+        imgui.PushItemWidth(dropdownWidth)
+        _, op = imgui.Combo("operation", op, ops, #ops)
+        imgui.PopItemWidth()
 
-        _, add = imgui.Checkbox("add instead", add)
-
-        Tooltip(
-            "Determines whether to add to existing SV amounts, " ..
-            "instead of multiplying them."
-        )
+        Tooltip("Determines what kind of operation is applied to existing SVs.")
 
         imgui.SameLine(0, padding)
-
-        _, show = imgui.Checkbox("show note info", show)
+        _, show = imgui.Checkbox("note info", show)
 
         Tooltip(
             "When enabled, displays SV distance of selected notes in a " ..
@@ -232,7 +233,7 @@ function draw()
         "section",
         "I",
         section,
-        { from, to, add, after, by, amp, period, ease, custom },
+        { from, to, op, after, by, amp, period, ease, custom },
         "'from' is applied from the start of the selection.\n" ..
         "'to' is applied to the end of the selection."
     )
@@ -243,7 +244,7 @@ function draw()
         "per note",
         "O",
         perNote,
-        { from, to, add, after, by, amp, period, ease, custom },
+        { from, to, op, after, by, amp, period, ease, custom },
         "'from' is applied from the selected note.\n" ..
         "'to' is applied just before next selected note."
     )
@@ -255,13 +256,13 @@ function draw()
             "per sv",
             "P",
             perSV,
-            { from, to, add, after, ease, by, amp, period, count, custom },
+            { from, to, op, after, ease, by, amp, period, count, custom },
             "Smear tool, adds SVs in-between existing SVs." ..
             "'from' and 'to' function identically to 'section'."
         )
 
         ShowNoteInfo(show)
-        Plot(from, to, add, after, by, amp, period, ease, count, custom)
+        Plot(from, to, op, after, by, amp, period, ease, count, custom)
     end
 
     state.SetValue("from", from)
@@ -273,7 +274,7 @@ function draw()
     state.SetValue("period", period)
     state.SetValue("after", after)
     state.SetValue("by", by)
-    state.SetValue("add", add)
+    state.SetValue("op", op)
     state.SetValue("show", show)
     state.SetValue("advanced", advanced)
     state.SetValue("custom", custom)
@@ -284,11 +285,11 @@ end
 --- Applies the tween over the entire selected region.
 --- @param from number
 --- @param to number
---- @param add boolean
+--- @param op number
 --- @param after integer
 --- @param by number
 --- @param ease string
-function section(from, to, add, after, by, amp, period, ease, custom)
+function section(from, to, op, after, by, amp, period, ease, custom)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
 
@@ -304,8 +305,8 @@ function section(from, to, add, after, by, amp, period, ease, custom)
         local f = (sv.StartTime - svs[1].StartTime) /
             (svs[#svs].StartTime - svs[1].StartTime)
 
-        local fm = tween(f, from, to, amp, period, ease, custom)
-        local a = addormul(sv.Multiplier, fm, add)
+        local fm = tween(f, from, to, amp, period, ease, sv.Multiplier, custom)
+        local a = handleOperation(sv.Multiplier, fm, op)
         local v = afterfn(after, by)(a)
         svsToAdd[i] = utils.CreateScrollVelocity(sv.StartTime, v)
     end
@@ -319,11 +320,11 @@ end
 --- Applies the tween over each note selected.
 --- @param from number
 --- @param to number
---- @param add boolean
+--- @param op number
 --- @param after integer
 --- @param by number
 --- @param ease string
-function perNote(from, to, add, after, by, amp, period, ease, custom)
+function perNote(from, to, op, after, by, amp, period, ease, custom)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
 
@@ -338,8 +339,8 @@ function perNote(from, to, add, after, by, amp, period, ease, custom)
     for i, sv in ipairs(svs) do
         local b, e = findAdjacentNotes(sv, offsets)
         local f = (sv.StartTime - b) / (e - b)
-        local fm = tween(f, from, to, amp, period, ease, custom)
-        local a = addormul(sv.Multiplier, fm, add)
+        local fm = tween(f, from, to, amp, period, ease, sv.Multiplier, custom)
+        local a = handleOperation(sv.Multiplier, fm, op)
         local v = afterfn(after, by)(a)
         svsToAdd[i] = utils.CreateScrollVelocity(sv.StartTime, v)
     end
@@ -353,12 +354,12 @@ end
 --- Applies the tween over each SV selected.
 --- @param from number
 --- @param to number
---- @param add boolean
+--- @param op number
 --- @param after integer
 --- @param by number
 --- @param ease string
 --- @param count integer
-function perSV(from, to, add, after, ease, by, amp, period, count, custom)
+function perSV(from, to, op, after, ease, by, amp, period, count, custom)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
 
@@ -371,6 +372,7 @@ function perSV(from, to, add, after, ease, by, amp, period, count, custom)
     local last = 0
 
     for i, sv in ipairs(svs) do
+        local multiplier = sv.Multiplier
         local n = svs[i + 1]
 
         if not n then
@@ -380,11 +382,12 @@ function perSV(from, to, add, after, ease, by, amp, period, count, custom)
         svsToAdd[last + count + 1] = nil
 
         for j = 0, count - 1, 1 do
+            local gEase = "linear"
             local f = j / (count - 1.0)
             local g = j / (count - 0.0)
-            local fm = tween(f, from, to, amp, period, ease, custom)
-            local gm = tween(g, sv.StartTime, n.StartTime, 0, 0, "linear", "")
-            local a = addormul(sv.Multiplier, fm, add)
+            local fm = tween(f, from, to, amp, period, ease, multiplier, custom)
+            local gm = tween(g, sv.StartTime, n.StartTime, 0, 0, gEase, 0, "")
+            local a = handleOperation(sv.Multiplier, fm, op)
             local v = afterfn(after, by)(a)
             last = last + 1
             svsToAdd[last] = utils.CreateScrollVelocity(gm, v)
@@ -585,16 +588,17 @@ end
 --- @param from number
 --- @param to number
 --- @param ease string
+--- @param sv number
 --- @param custom string
 --- @return number
-function tween(f, from, to, amp, period, ease, custom)
+function tween(f, from, to, amp, period, ease, sv, custom)
     if ease == "custom" then
-        if custom ~= lastCustomString then
+        if not lastCustomFunction or custom ~= lastCustomString then
             lastCustomString = custom
             lastCustomFunction = easer[ease](custom)
         end
 
-        return lastCustomFunction(f, from, to - from)
+        return lastCustomFunction(f, from, to - from, 1, sv)
     end
 
     -- Lossless path: This prevents slight floating point inaccuracies.
@@ -619,17 +623,21 @@ function fulleasename(type, direction)
     return dirs[direction + 1] .. t:gsub("^%l", string.upper)
 end
 
---- Adds or multiplies two numbers based on the condition.
+--- Handles the binary operation of two numbers.
 --- @param x number
 --- @param y number
---- @param condition boolean
+--- @param op number
 --- @return number
-function addormul(x, y, condition)
-    if condition then
+function handleOperation(x, y, op)
+    if op == 0 then
+        return x * y
+    end
+
+    if op == 1 then
         return x + y
     end
 
-    return x * y
+    return y
 end
 
 --- Converts a note to a string.
@@ -783,22 +791,22 @@ end
 --- Creates a plot with the given parameters.
 --- @param from number
 --- @param to number
---- @param add boolean
+--- @param op number
 --- @param after integer
 --- @param by number
 --- @param ease string
 --- @param count number
 --- @param custom string
-function Plot(from, to, add, after, by, amp, period, ease, count, custom)
+function Plot(from, to, op, after, by, amp, period, ease, count, custom)
     imgui.Begin("mulch plot", imgui_window_flags.AlwaysAutoResize)
 
-    if from ~= lastFrom or to ~= lastTo or add ~= lastAdd or
+    if from ~= lastFrom or to ~= lastTo or op ~= lastOp or
         after ~= lastAfter or by ~= lastBy or amp ~= lastAmp or
         period ~= lastPeriod or ease ~= lastEase or
         count ~= lastCount or custom ~= lastCustomString then
         lastFrom = from
         lastTo = to
-        lastAdd = add
+        lastOp = op
         lastAfter = after
         lastBy = by
         lastAmp = amp
@@ -813,8 +821,8 @@ function Plot(from, to, add, after, by, amp, period, ease, count, custom)
 
         for i = 0, count, 1 do
             local f = i / count
-            local fm = tween(f, from, to, amp, period, ease, custom)
-            local a = addormul(1, fm, add)
+            local fm = tween(f, from, to, amp, period, ease, 1, custom)
+            local a = handleOperation(1, fm, op)
             local v = afterfn(after, by)(a)
             heightValues[i + 1] = v
             heightMax = math.max(v, heightMax)
@@ -858,10 +866,10 @@ function ShowCalculator()
 
     imgui.SameLine(0, 10)
     imgui.PushItemWidth(1)
-    _, calculators = imgui.InputInt("calculators", calculators, 1, 1, textFlags)
+    _, calculators = imgui.InputInt("", calculators, 1, 1, textFlags)
     imgui.PopItemWidth()
 
-    Tooltip("The number of calculators.\nEach text field is independent.")
+    Tooltip("The number of calculators.\nEach text field is independent.", 225)
     calculators = clamp(calculators, 1, 16)
 
     state.SetValue("calculators", calculators)
@@ -1562,8 +1570,15 @@ function easings()
         inOutBounce  = inOutBounce,
         outInBounce  = outInBounce,
         custom       = function(x)
-            return function(t, b, c)
-                local value, _ = calc(x:gsub("t", t):gsub("b", b):gsub("c", c))
+            return function(t, b, c, d, v)
+                local value, _ = calc(
+                    x:gsub("t", t)
+                    :gsub("b", b)
+                    :gsub("c", c)
+                    :gsub("d", d)
+                    :gsub("v", v)
+                )
+
                 return value or (0 / 0)
             end
         end
