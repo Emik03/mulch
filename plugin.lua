@@ -673,6 +673,19 @@ function noteString(obj, pos, fromEnd)
         tostring(obj.Lane) .. " = " .. tostring(pos) .. " msx"
 end
 
+--- Converts a note to a string.
+--- @param obj HitObjectInfo
+--- @param fromEnd boolean
+function noteRawString(obj, fromEnd)
+    local time = obj.StartTime
+
+    if fromEnd then
+        time = obj.EndTime
+    end
+
+    return tostring(time) .. "|" .. tostring(obj.Lane)
+end
+
 --- Gets the RGBA object of the provided hex value.
 --- @param hex string
 --- @return number[]
@@ -1051,18 +1064,26 @@ function ShowNoteInfo(show)
     if #objects == 0 then
     elseif #objects == lastSelected and
         objects[1].StartTime == lastStartTimeOfFirstNote and
-        objects[1].StartTime == lastLaneOfFirstNote and
+        objects[1].Lane == lastLaneOfFirstNote and
         mode == lastMode and
         term == lastTerm and
         not refresh then
         for _, v in ipairs(lastSelectables) do
             if v and
                 (inclusive == 0 or ((inclusive == 1) ==
-                (v.position >= from and v.position <= to))) and
-                imgui.Selectable(v.string) then
-                imgui.SetClipboardText(tostring(v.position))
-                print("Copied '" .. tostring(v.position) .. "' to clipboard.")
+                (v.position >= from and v.position <= to))) then
+                if imgui.Selectable(v.string) then
+                    imgui.SetClipboardText(tostring(v.position))
+
+                    print(
+                        "Copied '" .. tostring(v.position) .. "' to clipboard."
+                    )
+                elseif imgui.IsItemClicked(1) or imgui.IsItemClicked(2) then
+                    imgui.SetClipboardText(v.clipboard)
+                    print("Copied '" .. v.clipboard .. "' to clipboard.")
+                end
             end
+
         end
     else
         lastSelectables = {}
@@ -1074,6 +1095,7 @@ function ShowNoteInfo(show)
             local position = markers(obj.StartTime) / 100
 
             local start = {
+                clipboard = noteRawString(obj, false),
                 time = obj.StartTime,
                 position = position,
                 string = noteString(obj, position, false)
@@ -1082,10 +1104,14 @@ function ShowNoteInfo(show)
             lastSelectables[i * 2 - 1] = start
 
             if (inclusive == 0 or ((inclusive == 1) ==
-                (position >= from and position <= to))) and
-                imgui.Selectable(start.string) then
-                imgui.SetClipboardText(tostring(position))
-                print("Copied '" .. tostring(position) .. "' to clipboard.")
+                (position >= from and position <= to))) then
+                if imgui.Selectable(start.string) then
+                    imgui.SetClipboardText(tostring(position))
+                    print("Copied '" .. tostring(position) .. "' to clipboard.")
+                elseif imgui.IsItemClicked(1) or imgui.IsItemClicked(2) then
+                    imgui.SetClipboardText(start.clipboard)
+                    print("Copied '" .. start.clipboard .. "' to clipboard.")
+                end
             end
 
             if obj.EndTime == 0 then
@@ -1094,6 +1120,7 @@ function ShowNoteInfo(show)
                 local endPosition = markers(obj.EndTime) / 100
 
                 local ending = {
+                    clipboard = noteRawString(obj, true),
                     time = obj.EndTime,
                     position = endPosition,
                     string = noteString(obj, endPosition, true)
@@ -1102,12 +1129,22 @@ function ShowNoteInfo(show)
                 lastSelectables[i * 2] = ending
 
                 if (inclusive == 0 or ((inclusive == 1) ==
-                    (position >= from and position <= to))) and
-                    imgui.Selectable(ending.string) then
-                    imgui.SetClipboardText(tostring(endPosition))
-                    print(
-                        "Copied '" .. tostring(endPosition) .. "' to clipboard."
-                    )
+                    (position >= from and position <= to))) then
+                    if imgui.Selectable(ending.string) then
+                        imgui.SetClipboardText(tostring(endPosition))
+
+                        print(
+                            "Copied '" .. tostring(endPosition) ..
+                            "' to clipboard."
+                        )
+                    elseif imgui.IsItemClicked(1) or
+                        imgui.IsItemClicked(2) then
+                        imgui.SetClipboardText(ending.clipboard)
+
+                        print(
+                            "Copied '" .. ending.clipboard .. "' to clipboard."
+                        )
+                    end
                 end
             end
         end
