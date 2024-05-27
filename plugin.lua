@@ -42,7 +42,8 @@ local afters = {
 }
 
 local dirs = { "in", "out", "inOut", "outIn" }
-local modes = { "relative", "absolute" }
+local modes = { "absolute", "relative" }
+local inclusives = { "unfiltered", "within", "not within" }
 local ops = { "multiply", "add", "replace" }
 local orders = { "ascending", "descending" }
 local terms = { "sort nm", "sort nsv" }
@@ -157,7 +158,7 @@ function draw()
         if types[type + 1] == "elastic" then
             imgui.PushItemWidth(215)
 
-            _, ap = imgui.InputFloat2(
+            local _, vs = imgui.InputFloat2(
                 "amp/period",
                 { amp, period },
                 "%.2f",
@@ -166,8 +167,8 @@ function draw()
 
             imgui.PopItemWidth()
             Tooltip("The elasticity severity, and frequency, respectively.")
-            amp = ap[1]
-            period = ap[2]
+            amp = vs[1]
+            period = vs[2]
         end
 
         if types[type + 1] == "custom" then
@@ -945,7 +946,7 @@ function ShowNoteInfo(show)
     local objects = state.SelectedHitObjects
     local name = "mulch position (" .. tostring(#objects) .. ")"
 
-    imgui.PushStyleVar(imgui_style_var.WindowMinSize, { 220, 265 })
+    imgui.PushStyleVar(imgui_style_var.WindowMinSize, { 220, 360 })
     imgui.Begin(name)
     imgui.PopStyleVar(imgui_style_var.WindowMinSize)
 
@@ -958,6 +959,9 @@ function ShowNoteInfo(show)
     local mode = get("mode", 0) ---@type number
     local order = get("order", 0) ---@type number
     local sort = get("sort", 0) ---@type number
+    local inclusive = get("inclusive", 0) ---@type number
+    local from = get("positionFrom", -10000) ---@type number
+    local to = get("positionTo", 100000) ---@type number
 
     imgui.PushItemWidth(125)
     _, term = imgui.Combo("by", term, terms, #terms)
@@ -966,7 +970,7 @@ function ShowNoteInfo(show)
     local modeLabel = "time in"
 
     if term == 0 then
-        modeLabel = "    "
+        modeLabel = " "
     end
 
     _, mode = imgui.Combo(modeLabel, mode, modes, #modes)
@@ -993,7 +997,18 @@ function ShowNoteInfo(show)
         "while descending refers to highest to lowest."
     )
 
+    _, inclusive = imgui.Combo(" ##incl", inclusive, inclusives, #inclusives)
+    Tooltip("Allows filtering of notes based on position.")
     imgui.PopItemWidth()
+
+    if inclusive ~= 0 then
+        imgui.PushItemWidth(170)
+        local _, vs = imgui.InputFloat2("msx", { from, to }, "%.2f", textFlags)
+        imgui.PopItemWidth()
+        from = vs[1]
+        to = vs[2]
+    end
+
     imgui.Separator()
 
     if sort ~= lastSort or order ~= lastOrder then
@@ -1027,7 +1042,10 @@ function ShowNoteInfo(show)
         term == lastTerm and
         not refresh then
         for _, v in ipairs(lastSelectables) do
-            if v and imgui.Selectable(v.string) then
+            if v and
+                (inclusive == 0 or ((inclusive == 1) ==
+                (v.position >= from and v.position <= to))) and
+                imgui.Selectable(v.string) then
                 imgui.SetClipboardText(v.position)
                 print("Copied '" .. v.position .. "' to clipboard.")
             end
@@ -1035,7 +1053,7 @@ function ShowNoteInfo(show)
     else
         lastSelectables = {}
         lastSelectables[#objects * 2] = false
-        local markers = positionMarkers(mode == 1, term == 0)
+        local markers = positionMarkers(term == 1, mode == 1)
 
         for i = 1, #objects, 1 do
             local obj = objects[i]
@@ -1049,7 +1067,9 @@ function ShowNoteInfo(show)
 
             lastSelectables[i * 2 - 1] = start
 
-            if imgui.Selectable(start.string) then
+            if (inclusive == 0 or ((inclusive == 1) ==
+                (position >= from and position <= to))) and
+                imgui.Selectable(start.string) then
                 imgui.SetClipboardText(position)
                 print("Copied '" .. position .. "' to clipboard.")
             end
@@ -1067,7 +1087,9 @@ function ShowNoteInfo(show)
 
                 lastSelectables[i * 2 + 1] = ending
 
-                if imgui.Selectable(ending.string) then
+                if (inclusive == 0 or ((inclusive == 1) ==
+                    (position >= from and position <= to))) and
+                    imgui.Selectable(ending.string) then
                     imgui.SetClipboardText(endPosition)
                     print("Copied '" .. endPosition .. "' to clipboard.")
                 end
@@ -1079,6 +1101,9 @@ function ShowNoteInfo(show)
     state.SetValue("term", term)
     state.SetValue("order", order)
     state.SetValue("sort", sort)
+    state.SetValue("inclusive", inclusive)
+    state.SetValue("positionFrom", from)
+    state.SetValue("positionTo", to)
     lastPosition = imgui.GetWindowPos(name)
     lastSize = imgui.GetWindowSize(name)
     lastSelected = #objects
