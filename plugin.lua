@@ -9,8 +9,9 @@
 --- @field StartTime number
 --- @field Multiplier number
 
+local lastStartTimeOfFirstNote = 0
 local lastPosition = { 1635, 95 }
-local lastOffsetOfFirstNote = 0
+local lastLaneOfFirstNote = 0
 local lastSize = { 0, 200 }
 local lastSelectables = {}
 local lastCustomFunction
@@ -44,7 +45,7 @@ local afters = {
 local dirs = { "in", "out", "inOut", "outIn" }
 local modes = { "absolute", "relative" }
 local inclusives = { "unfiltered", "within", "not within" }
-local ops = { "multiply", "add", "replace" }
+local ops = { "multiply", "add", "divide", "subtract", "modulo", "replace" }
 local orders = { "ascending", "descending" }
 local terms = { "sort nm", "sort nsv" }
 local sorts = { "timing", "positioning" }
@@ -644,6 +645,18 @@ function handleOperation(x, y, op)
         return x + y
     end
 
+    if op == 2 then
+        return x / y
+    end
+
+    if op == 3 then
+        return x - y
+    end
+
+    if op == 4 then
+        return x % y
+    end
+
     return y
 end
 
@@ -1037,7 +1050,8 @@ function ShowNoteInfo(show)
 
     if #objects == 0 then
     elseif #objects == lastSelected and
-        objects[1].StartTime == lastOffsetOfFirstNote and
+        objects[1].StartTime == lastStartTimeOfFirstNote and
+        objects[1].StartTime == lastLaneOfFirstNote and
         mode == lastMode and
         term == lastTerm and
         not refresh then
@@ -1111,7 +1125,8 @@ function ShowNoteInfo(show)
     lastSelected = #objects
     lastMode = mode
     lastTerm = term
-    lastOffsetOfFirstNote = (objects[1] or { StartTime = 0 }).StartTime
+    lastStartTimeOfFirstNote = (objects[1] or { StartTime = 0 }).StartTime
+    lastLaneOfFirstNote = (objects[1] or { Lane = 0 }).Lane
     imgui.End()
 end
 
