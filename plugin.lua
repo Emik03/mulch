@@ -1046,23 +1046,23 @@ function ShowNoteInfo(show)
                 (inclusive == 0 or ((inclusive == 1) ==
                 (v.position >= from and v.position <= to))) and
                 imgui.Selectable(v.string) then
-                imgui.SetClipboardText(v.position)
-                print("Copied '" .. v.position .. "' to clipboard.")
+                imgui.SetClipboardText(tostring(v.position))
+                print("Copied '" .. tostring(v.position) .. "' to clipboard.")
             end
         end
     else
         lastSelectables = {}
-        lastSelectables[#objects * 2] = false
+        lastSelectables[#objects * 2] = nil
         local markers = positionMarkers(term == 1, mode == 1)
 
         for i = 1, #objects, 1 do
             local obj = objects[i]
-            local position = markers(obj.StartTime)
+            local position = markers(obj.StartTime) / 100
 
             local start = {
                 time = obj.StartTime,
                 position = position,
-                string = noteString(obj, position / 100, false)
+                string = noteString(obj, position, false)
             }
 
             lastSelectables[i * 2 - 1] = start
@@ -1070,28 +1070,30 @@ function ShowNoteInfo(show)
             if (inclusive == 0 or ((inclusive == 1) ==
                 (position >= from and position <= to))) and
                 imgui.Selectable(start.string) then
-                imgui.SetClipboardText(position)
-                print("Copied '" .. position .. "' to clipboard.")
+                imgui.SetClipboardText(tostring(position))
+                print("Copied '" .. tostring(position) .. "' to clipboard.")
             end
 
             if obj.EndTime == 0 then
                 lastSelectables[i * 2] = false
             else
-                local endPosition = markers(obj.EndTime)
+                local endPosition = markers(obj.EndTime) / 100
 
                 local ending = {
                     time = obj.EndTime,
                     position = endPosition,
-                    string = noteString(obj, endPosition / 100, true)
+                    string = noteString(obj, endPosition, true)
                 }
 
-                lastSelectables[i * 2 + 1] = ending
+                lastSelectables[i * 2] = ending
 
                 if (inclusive == 0 or ((inclusive == 1) ==
                     (position >= from and position <= to))) and
                     imgui.Selectable(ending.string) then
-                    imgui.SetClipboardText(endPosition)
-                    print("Copied '" .. endPosition .. "' to clipboard.")
+                    imgui.SetClipboardText(tostring(endPosition))
+                    print(
+                        "Copied '" .. tostring(endPosition) .. "' to clipboard."
+                    )
                 end
             end
         end
