@@ -1,0 +1,19 @@
+{
+    "diagnostics.globals": [
+        "draw",
+        "imgui",
+        "imgui_style_var",
+        "state",
+        "imgui_input_text_flags",
+        "imgui_window_flags",
+        "utils",
+        "actions",
+        "action_type",
+        "map",
+        "keys",
+        "imgui_col"
+    ],
+    "diagnostics.disable": [
+        "lowercase-global"
+    ]
+}

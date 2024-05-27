@@ -1,6 +1,6 @@
 --- @class HitObjectInfo
 --- @field StartTime number
---- @field Lane 1|2|3|4|5|6|7|8
+--- @field Lane number
 --- @field EndTime number
 --- @field HitSound any
 --- @field EditorLayer integer
@@ -16,7 +16,6 @@ local lastRelative = false
 local lastSelected = 0
 local lastShow = false
 local lastNsv = false
-local lastTime = 0
 local textFlags
 
 local afters = {
@@ -76,7 +75,7 @@ function draw()
         "'from' and 'to' values."
     )
 
-    local _, count = imgui.InputInt("count", count, 1, 1, textFlags)
+    _, count = imgui.InputInt("count", count, 1, 1, textFlags)
 
     Tooltip(
         "The resolution of the plot, and the number of SVs " ..
@@ -85,10 +84,10 @@ function draw()
 
     count = clamp(count, 1, 256)
     imgui.Separator()
-    showCalculator(textFlags)
+    ShowCalculator()
 
     imgui.PushItemWidth(100)
-    local _, type = imgui.Combo("type", type, types, #types)
+    _, type = imgui.Combo("type", type, types, #types)
     imgui.PopItemWidth()
 
     if types[type + 1] ~= "linear" then
@@ -116,7 +115,7 @@ function draw()
 
     imgui.Separator()
     imgui.PushItemWidth(100)
-    local _, after = imgui.Combo("after", after, afters, #afters)
+    _, after = imgui.Combo("after", after, afters, #afters)
     imgui.PopItemWidth()
 
     Tooltip(
@@ -141,7 +140,7 @@ function draw()
 
     imgui.Separator()
 
-    local _, add = imgui.Checkbox("add instead", add)
+    _, add = imgui.Checkbox("add instead", add)
 
     Tooltip(
         "Determines whether to add to existing SV amounts, " ..
@@ -150,7 +149,7 @@ function draw()
 
     imgui.SameLine(0, padding)
 
-    local _, show = imgui.Checkbox("show note info", show)
+    _, show = imgui.Checkbox("show note info", show)
 
     Tooltip(
         "When enabled, displays SV distance of selected notes in a window. " ..
@@ -192,8 +191,8 @@ function draw()
         "'from' and 'to' function identically to 'section'."
     )
 
-    showNoteInfo(show)
-    plot(from, to, add, after, by, amp, period, ease, count)
+    ShowNoteInfo(show)
+    Plot(from, to, add, after, by, amp, period, ease, count)
 
     state.SetValue("from", from)
     state.SetValue("to", to)
@@ -206,227 +205,6 @@ function draw()
     state.SetValue("by", by)
     state.SetValue("add", add)
     state.SetValue("show", show)
-
-    imgui.End()
-end
-
---- Shows the calculator window.
---- @param textFlags number
-function showCalculator(textFlags)
-    imgui.Begin("mulch calculator", imgui_window_flags.AlwaysAutoResize)
-
-    local precise = get("precise", false) ---@type boolean
-    local calculators = get("calculators", 1) ---@type number
-
-    local _, precise = imgui.Checkbox("precise", precise)
-
-    Tooltip(
-        "When enabled, displays higher precision,\n" ..
-        "including floating point errors."
-    )
-
-    imgui.SameLine(0, 10)
-
-    imgui.PushItemWidth(1)
-
-    local _, calculators = imgui.InputInt(
-        "calculators",
-        calculators,
-        1,
-        1,
-        textFlags
-    )
-
-    imgui.PopItemWidth()
-
-    Tooltip("The number of calculators.\nEach text field is independent.")
-    calculators = clamp(calculators, 1, 16)
-
-    state.SetValue("calculators", calculators)
-    state.SetValue("precise", precise)
-    imgui.Separator()
-
-    for i = 1, calculators do
-        showOneCalculator(i, precise)
-    end
-
-    imgui.End()
-end
-
---- Shows one calculator.
---- @param i number
---- @param precise boolean
-function showOneCalculator(i, precise)
-    local format = "%.17f"
-
-    if not precise then
-        format = "%f"
-    end
-
-    local key = "##calculate" .. tostring(i)
-    local calculate = get(key, "") ---@type string
-
-    imgui.PushItemWidth(200)
-    local _, calculate = imgui.InputText(key, calculate, 100)
-    imgui.PopItemWidth()
-
-    state.SetValue(key, calculate)
-
-    local value, err = calculator()(calculate)
-
-    if value then
-        value = string.format(format, value):
-          gsub("(%..-)0*$", "%1"):
-          gsub("%.$", "")
-    end
-
-    if #calculate ~= 0 then
-        imgui.SameLine(0, 10)
-    end
-
-    if #calculate ~= 0 and imgui.Button(value or ":c") then
-        if #calculate == 0 then
-            print("Please enter a calculation first.")
-        elseif value then
-            imgui.SetClipboardText(value)
-            print("Copied '" .. value .. "' to clipboard.")
-        else
-            print(err)
-        end
-    end
-end
-
---- Shows the note info window.
---- @param show boolean
-function showNoteInfo(show)
-    local refresh = show and not lastShow
-    lastShow = show
-
-    if not show then
-        return
-    end
-
-    local objects = state.SelectedHitObjects
-    local name = "mulch positions (" .. tostring(#objects) .. " selected)"
-    imgui.Begin(name)
-
-    if #objects ~= lastSelected then
-        imgui.SetWindowPos(name, lastPosition)
-        imgui.SetWindowSize(name, lastSize)
-    end
-
-    local relative = get("relative", false) ---@type boolean
-    local nsv = get("nsv", false) ---@type boolean
-    local _, relative = imgui.Checkbox("relative", relative)
-
-    Tooltip(
-        "Distance will be relative to the first selected note, " ..
-        "making the first selected note always 0."
-    )
-
-    imgui.SameLine(0, 10)
-    local _, nsv = imgui.Checkbox("nsv", nsv)
-    Tooltip("Distance is measured without considering SVs.")
-    imgui.Separator()
-
-    if #objects == 0 then
-    elseif #objects == lastSelected and
-        lastNsv == nsv and
-        lastRelative == relative and
-        not refresh then
-        for i = 1, #objects, 1 do
-            local obj = objects[i]
-            local position = lastSelectables[i * 2]
-
-            if imgui.Selectable(noteString(obj, position, false)) then
-                imgui.SetClipboardText(position)
-                print("Copied '" .. position .. "' to clipboard.")
-            end
-
-            if obj.EndTime ~= 0 then
-                local position = lastSelectables[i * 2 + 1]
-
-                if imgui.Selectable(noteString(obj, position, true)) then
-                    imgui.SetClipboardText(position)
-                    print("Copied '" .. position .. "' to clipboard.")
-                end
-            end
-        end
-    else
-        lastSelectables[#objects] = nil
-        local markers = positionMarkers(relative, nsv)
-
-        for i = 1, #objects, 1 do
-            local obj = objects[i]
-            local position = tostring(markers(obj.StartTime) / 100)
-            lastSelectables[i * 2] = position
-
-            if imgui.Selectable(noteString(obj, position, false)) then
-                imgui.SetClipboardText(position)
-                print("Copied '" .. position .. "' to clipboard.")
-            end
-
-            if obj.EndTime == 0 then
-                lastSelectables[i * 2 + 1] = nil
-            else
-                local position = tostring(markers(obj.EndTime) / 100)
-                lastSelectables[i * 2 + 1] = position
-
-                if imgui.Selectable(noteString(obj, position, true)) then
-                    imgui.SetClipboardText(position)
-                    print("Copied '" .. position .. "' to clipboard.")
-                end
-            end
-        end
-    end
-
-    state.SetValue("relative", relative)
-    state.SetValue("nsv", nsv)
-    lastPosition = imgui.GetWindowPos(name)
-    lastSize = imgui.GetWindowSize(name)
-    lastSelected = #objects
-    lastRelative = relative
-    lastNsv = nsv
-    imgui.End()
-end
-
---- Creates a plot with the given parameters.
---- @param from number
---- @param to number
---- @param add boolean
---- @param after integer
---- @param by number
---- @param ease string
---- @param count number
-function plot(from, to, add, after, by, amp, period, ease, count)
-    imgui.Begin("mulch plot", imgui_window_flags.AlwaysAutoResize)
-
-    local heightValues = {}
-    heightValues[count + 1] = nil
-    local max = -1 / 0
-    local min = 1 / 0
-
-    for i = 0, count, 1 do
-        local f = i / count
-        local fm = tween(f, from, to, amp, period, ease)
-        local a = addormul(1, fm, add)
-        local v = afterfn(after, by)(a)
-        heightValues[i + 1] = v
-        max = math.max(v, max)
-        min = math.min(v, min)
-    end
-
-    imgui.PlotLines(
-        "",
-        heightValues,
-        #heightValues,
-        0,
-        ease .. ", " .. math.floor(min * 100 + 0.5) / 100 .. " to " ..
-        math.floor(max * 100 + 0.5) / 100,
-        min,
-        max,
-        { 300, 150 }
-    )
 
     imgui.End()
 end
@@ -771,9 +549,9 @@ function addormul(x, y, condition)
 end
 
 --- Converts a note to a string.
---- @param obj HitObject
+--- @param obj HitObjectInfo
 --- @param mark string
---- @param fromStart boolean
+--- @param fromEnd boolean
 function noteString(obj, mark, fromEnd)
     if fromEnd then
         return tostring(obj.EndTime) .. "^  = " .. mark
@@ -916,6 +694,218 @@ function ActionButton(label, key, fn, tbl, msg)
     Tooltip(
         msg .. " Alternatively, press " .. key .. " to perform this action."
     )
+end
+
+--- Creates a plot with the given parameters.
+--- @param from number
+--- @param to number
+--- @param add boolean
+--- @param after integer
+--- @param by number
+--- @param ease string
+--- @param count number
+function Plot(from, to, add, after, by, amp, period, ease, count)
+    imgui.Begin("mulch plot", imgui_window_flags.AlwaysAutoResize)
+
+    local heightValues = {}
+    heightValues[count + 1] = nil
+    local max = -1 / 0
+    local min = 1 / 0
+
+    for i = 0, count, 1 do
+        local f = i / count
+        local fm = tween(f, from, to, amp, period, ease)
+        local a = addormul(1, fm, add)
+        local v = afterfn(after, by)(a)
+        heightValues[i + 1] = v
+        max = math.max(v, max)
+        min = math.min(v, min)
+    end
+
+    imgui.PlotLines(
+        "",
+        heightValues,
+        #heightValues,
+        0,
+        ease .. ", " .. math.floor(min * 100 + 0.5) / 100 .. " to " ..
+        math.floor(max * 100 + 0.5) / 100,
+        min,
+        max,
+        { 300, 150 }
+    )
+
+    imgui.End()
+end
+
+--- Shows the calculator window.
+function ShowCalculator()
+    imgui.Begin("mulch calculator", imgui_window_flags.AlwaysAutoResize)
+
+    local precise = get("precise", false) ---@type boolean
+    local calculators = get("calculators", 1) ---@type number
+
+    _, precise = imgui.Checkbox("precise", precise)
+
+    Tooltip(
+        "When enabled, displays higher precision,\n" ..
+        "including floating point errors."
+    )
+
+    imgui.SameLine(0, 10)
+    imgui.PushItemWidth(1)
+    _, calculators = imgui.InputInt("calculators", calculators, 1, 1, textFlags)
+    imgui.PopItemWidth()
+
+    Tooltip("The number of calculators.\nEach text field is independent.")
+    calculators = clamp(calculators, 1, 16)
+
+    state.SetValue("calculators", calculators)
+    state.SetValue("precise", precise)
+    imgui.Separator()
+    local calc = calculator()
+
+    for i = 1, calculators do
+        ShowOneCalculator(i, precise, calc)
+    end
+
+    imgui.End()
+end
+
+--- Shows one calculator.
+--- @param i number
+--- @param precise boolean
+--- @param calc function
+function ShowOneCalculator(i, precise, calc)
+    local format = "%.17f"
+
+    if not precise then
+        format = "%f"
+    end
+
+    local key = "##calculate" .. tostring(i)
+    local calculate = get(key, "") ---@type string
+
+    imgui.PushItemWidth(200)
+    _, calculate = imgui.InputText(key, calculate, 100)
+    imgui.PopItemWidth()
+
+    state.SetValue(key, calculate)
+    local value, err = calc(calculate)
+
+    if value then
+        value = string.format(format, value):
+          gsub("(%..-)0*$", "%1"):
+          gsub("%.$", "")
+    end
+
+    if #calculate ~= 0 then
+        imgui.SameLine(0, 10)
+    end
+
+    if #calculate ~= 0 and imgui.Button(value or ":c") then
+        if #calculate == 0 then
+            print("Please enter a calculation first.")
+        elseif value then
+            imgui.SetClipboardText(value)
+            print("Copied '" .. value .. "' to clipboard.")
+        else
+            print(err)
+        end
+    end
+end
+
+--- Shows the note info window.
+--- @param show boolean
+function ShowNoteInfo(show)
+    local refresh = show and not lastShow
+    lastShow = show
+
+    if not show then
+        return
+    end
+
+    local objects = state.SelectedHitObjects
+    local name = "mulch positions (" .. tostring(#objects) .. " selected)"
+    imgui.Begin(name)
+
+    if #objects ~= lastSelected then
+        imgui.SetWindowPos(name, lastPosition)
+        imgui.SetWindowSize(name, lastSize)
+    end
+
+    local relative = get("relative", false) ---@type boolean
+    local nsv = get("nsv", false) ---@type boolean
+    _, relative = imgui.Checkbox("relative", relative)
+
+    Tooltip(
+        "Distance will be relative to the first selected note, " ..
+        "making the first selected note always 0."
+    )
+
+    imgui.SameLine(0, 10)
+    _, nsv = imgui.Checkbox("nsv", nsv)
+    Tooltip("Distance is measured without considering SVs.")
+    imgui.Separator()
+
+    if #objects == 0 then
+    elseif #objects == lastSelected and
+        lastNsv == nsv and
+        lastRelative == relative and
+        not refresh then
+        for i = 1, #objects, 1 do
+            local obj = objects[i]
+            local position = lastSelectables[i * 2]
+
+            if imgui.Selectable(noteString(obj, position, false)) then
+                imgui.SetClipboardText(position)
+                print("Copied '" .. position .. "' to clipboard.")
+            end
+
+            if obj.EndTime ~= 0 then
+                position = lastSelectables[i * 2 + 1]
+
+                if imgui.Selectable(noteString(obj, position, true)) then
+                    imgui.SetClipboardText(position)
+                    print("Copied '" .. position .. "' to clipboard.")
+                end
+            end
+        end
+    else
+        lastSelectables[#objects] = nil
+        local markers = positionMarkers(relative, nsv)
+
+        for i = 1, #objects, 1 do
+            local obj = objects[i]
+            local position = tostring(markers(obj.StartTime) / 100)
+            lastSelectables[i * 2] = position
+
+            if imgui.Selectable(noteString(obj, position, false)) then
+                imgui.SetClipboardText(position)
+                print("Copied '" .. position .. "' to clipboard.")
+            end
+
+            if obj.EndTime == 0 then
+                lastSelectables[i * 2 + 1] = nil
+            else
+                position = tostring(markers(obj.EndTime) / 100)
+                lastSelectables[i * 2 + 1] = position
+
+                if imgui.Selectable(noteString(obj, position, true)) then
+                    imgui.SetClipboardText(position)
+                    print("Copied '" .. position .. "' to clipboard.")
+                end
+            end
+        end
+    end
+
+    state.SetValue("relative", relative)
+    state.SetValue("nsv", nsv)
+    lastPosition = imgui.GetWindowPos(name)
+    lastSize = imgui.GetWindowSize(name)
+    lastSelected = #objects
+    lastRelative = relative
+    lastNsv = nsv
+    imgui.End()
 end
 
 --- Creates a tooltip hoverable element.
@@ -1664,7 +1654,7 @@ function calculator()
     end
 
     return function(x)
-        local x, _ = x:gsub("%s", "")
+        x, _ = x:gsub("%s", "")
         return parseExpression(x)
     end
 end
