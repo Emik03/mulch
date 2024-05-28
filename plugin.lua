@@ -224,7 +224,10 @@ function draw()
         _, op = imgui.Combo("operation", op, ops, #ops)
         imgui.PopItemWidth()
 
-        Tooltip("Determines what kind of operation is applied to existing SVs.")
+        Tooltip(
+            "Determines how the existing SV and tweener are combined " ..
+            "into one value that becomes the new SV."
+        )
 
         imgui.SameLine(0, padding)
         _, show = imgui.Checkbox("note info", show)
@@ -571,10 +574,17 @@ function fullClipboard(field, message, inclusive, from, to)
         return
     end
 
-    local clipboard = lastSelectables[1][field]
+    local first = lastSelectables[1]
+    local clipboard = ""
 
-    if field == "time" then
-        clipboard = clipboard .. "|" .. lastSelectables[1].lane
+    if first and (inclusive == 0 or ((inclusive == 1) ==
+        (first.position >= math.min(from, to) and
+        first.position <= math.max(from, to)))) then
+        clipboard = first[field]
+
+        if field == "time" then
+            clipboard = clipboard .. "|" .. first.lane
+        end
     end
 
     if #lastSelectables == 1 then
@@ -601,6 +611,24 @@ function fullClipboard(field, message, inclusive, from, to)
                 end
             end
         end
+    end
+
+    if #clipboard == 0 then
+        if inclusive == 1 then
+            print(
+                "Nothing to copy. Please select notes " ..
+                "from within the time frame first."
+            )
+        elseif inclusive == 2 then
+            print(
+                "Nothing to copy. Please select notes " ..
+                "outside of the time frame first."
+            )
+        else
+            error("Not implemented: " .. inclusive)
+        end
+
+        return
     end
 
     imgui.SetClipboardText(clipboard)
