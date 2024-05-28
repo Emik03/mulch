@@ -562,23 +562,43 @@ end
 --- Constructs the clipboard from the last selected objects.
 --- @param field string
 --- @param message string
-function fullClipboard(field, message)
+--- @param inclusive number
+--- @param from number
+--- @param to number
+function fullClipboard(field, message, inclusive, from, to)
     if #lastSelectables == 0 then
         print("Nothing to copy. Please select notes first.")
+        return
     end
 
     local clipboard = lastSelectables[1][field]
+
+    if field == "time" then
+        clipboard = clipboard .. "|" .. lastSelectables[1].lane
+    end
 
     if #lastSelectables == 1 then
         imgui.SetClipboardText(clipboard)
         print(message)
         return clipboard
     else
+        local separator = "\n"
+
+        if field == "time" then
+            separator = ","
+        end
+
         for i = 2, #lastSelectables, 1 do
             local next = lastSelectables[i]
 
-            if next then
-                clipboard = clipboard .. "\n" .. next[field]
+            if next and (inclusive == 0 or ((inclusive == 1) ==
+                (next.position >= math.min(from, to) and
+                next.position <= math.max(from, to)))) then
+                clipboard = clipboard .. separator .. next[field]
+
+                if field == "time" then
+                    clipboard = clipboard .. "|" .. next.lane
+                end
             end
         end
     end
@@ -1072,11 +1092,11 @@ function ShowNoteInfo(show)
     end
 
     if imgui.Selectable(selectCountLabel) then
-        fullClipboard("position", "msx values")
+        fullClipboard("position", "msx values", inclusive, from, to)
     elseif imgui.IsItemClicked(1) then
-        fullClipboard("time", "object timestamps")
+        fullClipboard("time", "object timestamps", inclusive, from, to)
     elseif imgui.IsItemClicked(2) then
-        fullClipboard("string", "text")
+        fullClipboard("string", "text", inclusive, from, to)
     end
 
     Tooltip(
@@ -1137,7 +1157,8 @@ function ShowNoteInfo(show)
         for _, v in ipairs(lastSelectables) do
             if v and
                 (inclusive == 0 or ((inclusive == 1) ==
-                (v.position >= from and v.position <= to))) then
+                (v.position >= math.min(from, to) and
+                v.position <= math.max(from, to)))) then
                 if imgui.Selectable(v.string) then
                     imgui.SetClipboardText(v.position)
                     print("Copied '" .. v.position .. "' to clipboard.")
@@ -1171,7 +1192,8 @@ function ShowNoteInfo(show)
             lastSelectables[i * 2 - 1] = start
 
             if (inclusive == 0 or ((inclusive == 1) ==
-                (position >= from and position <= to))) then
+                (position >= math.min(from, to) and
+                position <= math.max(from, to)))) then
                 if imgui.Selectable(start.string) then
                     imgui.SetClipboardText(position)
                     print("Copied '" .. position .. "' to clipboard.")
@@ -1203,7 +1225,8 @@ function ShowNoteInfo(show)
                 lastSelectables[i * 2] = ending
 
                 if (inclusive == 0 or ((inclusive == 1) ==
-                    (position >= from and position <= to))) then
+                    (position >= math.min(from, to) and
+                    position <= math.max(from, to)))) then
                     if imgui.Selectable(ending.string) then
                         imgui.SetClipboardText(endPosition)
                         print("Copied '" .. endPosition .. "' to clipboard.")
