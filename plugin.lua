@@ -1117,12 +1117,12 @@ function ShowNoteInfo(show)
                 end
 
                 if order == 0 then
-                    value = xValue > yValue
-                else
                     value = xValue < yValue
+                else
+                    value = xValue > yValue
                 end
 
-                return value or xValue == yValue and x.lane > y.lane
+                return value or xValue == yValue and x.lane < y.lane
             end
         )
     end
