@@ -1065,11 +1065,25 @@ function ShowNoteInfo(show)
                     return true
                 end
 
+                local xValue
+                local yValue
+                local value
+
                 if sort == 0 then
-                    return x.time < y.time == (order == 1)
+                    xValue = x.time
+                    yValue = y.time
+                else
+                    xValue = x.position
+                    yValue = y.position
                 end
 
-                return x.position < y.position == (order == 1)
+                if order == 0 then
+                    value = xValue > yValue
+                else
+                    value = xValue < yValue
+                end
+
+                return value or xValue == yValue and x.lane > y.lane
             end
         )
     end
@@ -1109,6 +1123,7 @@ function ShowNoteInfo(show)
 
             local start = {
                 clipboard = noteRawString(obj, false),
+                lane = obj.Lane,
                 time = obj.StartTime,
                 position = position,
                 string = noteString(obj, position, false)
@@ -1140,6 +1155,7 @@ function ShowNoteInfo(show)
 
                 local ending = {
                     clipboard = noteRawString(obj, true),
+                    lane = obj.Lane,
                     time = obj.EndTime,
                     position = endPosition,
                     string = noteString(obj, endPosition, true)
