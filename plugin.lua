@@ -559,6 +559,34 @@ function getSVsBetweenOffsets(startOffset, endOffset)
     return svsBetweenOffsets
 end
 
+--- Constructs the clipboard from the last selected objects.
+--- @param field string
+--- @param message string
+function fullClipboard(field, message)
+    if #lastSelectables == 0 then
+        print("Nothing to copy. Please select notes first.")
+    end
+
+    local clipboard = lastSelectables[1][field]
+
+    if #lastSelectables == 1 then
+        imgui.SetClipboardText(clipboard)
+        print(message)
+        return clipboard
+    else
+        for i = 2, #lastSelectables, 1 do
+            local next = lastSelectables[i]
+
+            if next then
+                clipboard = clipboard .. "\n" .. next[field]
+            end
+        end
+    end
+
+    imgui.SetClipboardText(clipboard)
+    print("Copied all " .. message .. " to clipboard.")
+end
+
 --- Finds the closest note to a scroll velocity point.
 --- @param sv ScrollVelocityInfo
 --- @param notes HitObjectInfo
@@ -1033,19 +1061,30 @@ function ShowNoteInfo(show)
     end
 
     imgui.Separator()
+    local selectCountLabel
 
     if #objects == 0 then
-        imgui.Text("No hit objects selected.")
+        selectCountLabel = "No hit objects selected."
     elseif #objects == 1 then
-        imgui.Text("1 hit object selected.")
+        selectCountLabel = "1 hit object selected."
     else
-        imgui.Text(#objects .. " hit objects selected.")
+        selectCountLabel = #objects .. " hit objects selected."
+    end
+
+    if imgui.Selectable(selectCountLabel) then
+        fullClipboard("position", "msx values")
+    elseif imgui.IsItemClicked(1) then
+        fullClipboard("time", "object timestamps")
+    elseif imgui.IsItemClicked(2) then
+        fullClipboard("string", "text")
     end
 
     Tooltip(
         "Any of the numbers below can be left-clicked to copy their msx " ..
-        "value onto your clipboard. Use the middle or right mouse button to " ..
-        "copy the note instead, usable in \"Tools\" > \"Go To Objects\"."
+        "value onto your clipboard. Use the right mouse button to copy the " ..
+        "note instead, usable in \"Tools\" > \"Go To Objects\", and the " ..
+        "middle button to copy the whole text. Clicking this label will " ..
+        "perform the listed action on every selected note."
     )
 
     imgui.Separator()
