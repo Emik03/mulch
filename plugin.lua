@@ -45,7 +45,12 @@ local afters = {
 local dirs = { "in", "out", "inOut", "outIn" }
 local modes = { "absolute", "relative" }
 local inclusives = { "unfiltered", "within", "not within" }
-local ops = { "multiply", "add", "subtract", "divide", "modulo", "replace" }
+
+local ops = {
+    "multiply", "add", "subtract", "divide",
+    "modulo", "replace", "min", "max"
+}
+
 local orders = { "ascending", "descending" }
 local terms = { "sort nm", "sort nsv" }
 local sorts = { "timing", "positioning" }
@@ -437,9 +442,10 @@ function positionMarkers(nsv, relative)
 
     local index = 2
     local pos
+    local svs
 
     return function(time)
-        local svs = map.ScrollVelocities
+        svs = svs or map.ScrollVelocities
 
         if not first and relative then
             while index < #svs and time >= svs[index].StartTime do
@@ -637,27 +643,16 @@ end
 --- @param op number
 --- @return number
 function handleOperation(x, y, op)
-    if op == 0 then
-        return x * y
-    end
-
-    if op == 1 then
-        return x + y
-    end
-
-    if op == 2 then
-        return x - y
-    end
-
-    if op == 3 then
-        return x / y
-    end
-
-    if op == 4 then
-        return x % y
-    end
-
-    return y
+    return ({
+        x * y,
+        x + y,
+        x - y,
+        x / y,
+        x % y,
+        y,
+        math.min(x, y),
+        math.max(x, y)
+    })[op + 1] or error("Not implemented: " .. op)
 end
 
 --- Converts a note to a string.
@@ -666,11 +661,10 @@ end
 --- @param fromEnd boolean
 function noteString(obj, pos, fromEnd)
     if fromEnd then
-        return tostring(obj.EndTime) .. "^  = " .. tostring(pos) .. " msx"
+        return obj.EndTime .. "^  = " .. pos .. " msx"
     end
 
-    return tostring(obj.StartTime) .. "|" ..
-        tostring(obj.Lane) .. " = " .. tostring(pos) .. " msx"
+    return obj.StartTime .. "|" .. obj.Lane .. " = " .. pos .. " msx"
 end
 
 --- Converts a note to a string.
@@ -683,7 +677,7 @@ function noteRawString(obj, fromEnd)
         time = obj.EndTime
     end
 
-    return tostring(time) .. "|" .. tostring(obj.Lane)
+    return time .. "|" .. obj.Lane
 end
 
 --- Gets the RGBA object of the provided hex value.
@@ -838,6 +832,8 @@ function Plot(from, to, op, after, by, amp, period, ease, count, custom)
         after ~= lastAfter or by ~= lastBy or amp ~= lastAmp or
         period ~= lastPeriod or ease ~= lastEase or
         count ~= lastCount or custom ~= lastCustomString then
+
+
         lastFrom = from
         lastTo = to
         lastOp = op
@@ -927,7 +923,7 @@ function ShowOneCalculator(i, precise)
         format = "%f"
     end
 
-    local key = "##calculate" .. tostring(i)
+    local key = "##calculate" .. i
     local calculate = get(key, "") ---@type string
 
     imgui.PushItemWidth(200)
@@ -1042,7 +1038,7 @@ function ShowNoteInfo(show)
     elseif #objects == 1 then
         imgui.Text("1 hit object selected.")
     else
-        imgui.Text(tostring(#objects) .. " hit objects selected.")
+        imgui.Text(#objects .. " hit objects selected.")
     end
 
     Tooltip(
@@ -1089,14 +1085,14 @@ function ShowNoteInfo(show)
                 (inclusive == 0 or ((inclusive == 1) ==
                 (v.position >= from and v.position <= to))) then
                 if imgui.Selectable(v.string) then
-                    imgui.SetClipboardText(tostring(v.position))
-
-                    print(
-                        "Copied '" .. tostring(v.position) .. "' to clipboard."
-                    )
-                elseif imgui.IsItemClicked(1) or imgui.IsItemClicked(2) then
+                    imgui.SetClipboardText(v.position)
+                    print("Copied '" .. v.position .. "' to clipboard.")
+                elseif imgui.IsItemClicked(1) then
                     imgui.SetClipboardText(v.clipboard)
                     print("Copied '" .. v.clipboard .. "' to clipboard.")
+                elseif imgui.IsItemClicked(2) then
+                    imgui.SetClipboardText(v.string)
+                    print("Copied '" .. v.string .. "' to clipboard.")
                 end
             end
 
@@ -1122,11 +1118,14 @@ function ShowNoteInfo(show)
             if (inclusive == 0 or ((inclusive == 1) ==
                 (position >= from and position <= to))) then
                 if imgui.Selectable(start.string) then
-                    imgui.SetClipboardText(tostring(position))
-                    print("Copied '" .. tostring(position) .. "' to clipboard.")
-                elseif imgui.IsItemClicked(1) or imgui.IsItemClicked(2) then
+                    imgui.SetClipboardText(position)
+                    print("Copied '" .. position .. "' to clipboard.")
+                elseif imgui.IsItemClicked(1) then
                     imgui.SetClipboardText(start.clipboard)
                     print("Copied '" .. start.clipboard .. "' to clipboard.")
+                elseif imgui.IsItemClicked(2) then
+                    imgui.SetClipboardText(start.string)
+                    print("Copied '" .. start.string .. "' to clipboard.")
                 end
             end
 
@@ -1147,19 +1146,17 @@ function ShowNoteInfo(show)
                 if (inclusive == 0 or ((inclusive == 1) ==
                     (position >= from and position <= to))) then
                     if imgui.Selectable(ending.string) then
-                        imgui.SetClipboardText(tostring(endPosition))
-
-                        print(
-                            "Copied '" .. tostring(endPosition) ..
-                            "' to clipboard."
-                        )
-                    elseif imgui.IsItemClicked(1) or
-                        imgui.IsItemClicked(2) then
+                        imgui.SetClipboardText(endPosition)
+                        print("Copied '" .. endPosition .. "' to clipboard.")
+                    elseif imgui.IsItemClicked(1) then
                         imgui.SetClipboardText(ending.clipboard)
 
                         print(
                             "Copied '" .. ending.clipboard .. "' to clipboard."
                         )
+                    elseif imgui.IsItemClicked(2) then
+                        imgui.SetClipboardText(ending.string)
+                        print("Copied '" .. ending.string .. "' to clipboard.")
                     end
                 end
             end
