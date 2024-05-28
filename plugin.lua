@@ -440,13 +440,16 @@ function positionMarkers(nsv, relative)
         end
     end
 
+    -- We pay for the cost of loading SVs up-front, however we are assuming the
+    -- caller will not call this function in a loop or without using the
+    -- returned function at least once. If this changes, consider removing the
+    -- initialization and putting `svs = svs or map.ScrollVelocities` as the
+    -- first statement in the returned function.
+    local svs = map.ScrollVelocities
     local index = 2
     local pos
-    local svs
 
     return function(time)
-        svs = svs or map.ScrollVelocities
-
         if not first and relative then
             while index < #svs and time >= svs[index].StartTime do
                 index = index + 1
@@ -832,8 +835,6 @@ function Plot(from, to, op, after, by, amp, period, ease, count, custom)
         after ~= lastAfter or by ~= lastBy or amp ~= lastAmp or
         period ~= lastPeriod or ease ~= lastEase or
         count ~= lastCount or custom ~= lastCustomString then
-
-
         lastFrom = from
         lastTo = to
         lastOp = op
