@@ -21,13 +21,11 @@ local lastShow = false
 local lastPeriod = 0
 local lastAfter = 0
 local lastCount = 0
-local lastOrder = 0
 local lastEase = ""
 local lastFrom = 0
 local lastMode = 0
 local lastTerm = 0
 local heightValues
-local lastSort = 0
 local lastOp = 0
 local lastAmp = 0
 local lastBy = 0
@@ -35,6 +33,8 @@ local lastTo = 0
 local heightMax
 local heightMin
 local textFlags
+local lastOrder
+local lastSort
 
 local afters = {
     "none", "abs", "acos", "asin", "atan", "ceil", "cos", "deg",
@@ -1220,6 +1220,9 @@ function ShowNoteInfo(show)
                 end
             end
         end
+
+        lastSort = nil
+        lastOrder = nil
     end
 
     state.SetValue("mode", mode)
