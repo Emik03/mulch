@@ -1131,8 +1131,8 @@ function ShowNoteInfo(show)
 
             if obj.EndTime == 0 then
                 -- Has to be false so that if statements that check for the
-                -- object's existence fails, but at the same time, iterators
-                -- that check for nil to halt continue the iteration.
+                -- object's existence fail, but at the same time, iterators
+                -- that check for nil for halting continue the iteration.
                 lastSelectables[i * 2] = false
             else
                 local endPosition = markers(obj.EndTime) / 100
