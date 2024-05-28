@@ -993,7 +993,7 @@ function ShowNoteInfo(show)
     local modeLabel = "time in"
 
     if term == 0 then
-        modeLabel = " "
+        modeLabel = ""
     end
 
     _, mode = imgui.Combo(modeLabel, mode, modes, #modes)
@@ -1020,7 +1020,7 @@ function ShowNoteInfo(show)
         "while descending refers to highest to lowest."
     )
 
-    _, inclusive = imgui.Combo(" ##incl", inclusive, inclusives, #inclusives)
+    _, inclusive = imgui.Combo("##include", inclusive, inclusives, #inclusives)
     Tooltip("Allows filtering of notes based on position.")
     imgui.PopItemWidth()
 
