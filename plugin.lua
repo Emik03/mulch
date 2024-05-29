@@ -1106,7 +1106,7 @@ function ShowNoteInfo(show)
             "Currently there is no way to get this value, so it's a " ..
             "parameter instead. Chances are, it's the default 1, but if " ..
             "it's not, you can change this value. Once the game updates to " ..
-            "allow retrival of this value, this parameter will be removed."
+            "allow retrieval of this value, this parameter will be removed."
         )
     end
 
