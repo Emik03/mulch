@@ -428,8 +428,9 @@ end
 --- in ascending order, or else the function will return incorrect values.
 --- @param nsv boolean
 --- @param relative boolean
+--- @param initial number
 --- @return function
-function positionMarkers(nsv, relative)
+function positionMarkers(nsv, relative, initial)
     local first
 
     if not relative then
@@ -461,7 +462,8 @@ function positionMarkers(nsv, relative)
 
         if #svs == 0 or time < svs[1].StartTime then
             first = first or time
-            return math.floor(toF32((time - first) * 100))
+            local next = toF32((time - first) * initial)
+            return math.floor(toF32(next * 100))
         end
 
         if not pos then
@@ -1045,7 +1047,7 @@ function ShowNoteInfo(show)
     local objects = state.SelectedHitObjects
     local name = "mulch position"
 
-    imgui.PushStyleVar(imgui_style_var.WindowMinSize, { 220, 390 })
+    imgui.PushStyleVar(imgui_style_var.WindowMinSize, { 220, 465 })
     imgui.Begin(name)
     imgui.PopStyleVar(imgui_style_var.WindowMinSize)
 
@@ -1058,11 +1060,12 @@ function ShowNoteInfo(show)
     local mode = get("mode", 0) ---@type number
     local order = get("order", 0) ---@type number
     local sort = get("sort", 0) ---@type number
+    local initial = get("initial", 1) ---@type number
     local inclusive = get("inclusive", 0) ---@type number
     local from = get("positionFrom", -10000) ---@type number
     local to = get("positionTo", 100000) ---@type number
 
-    imgui.PushItemWidth(125)
+    imgui.PushItemWidth(120)
     _, term = imgui.Combo("by", term, terms, #terms)
     Tooltip("Whether distance is measured with or without considering SVs.")
 
@@ -1081,11 +1084,29 @@ function ShowNoteInfo(show)
     )
 
     if term == 0 then
-        _, sort = imgui.Combo("in", sort, sorts, #sorts)
+        _, sort = imgui.Combo("assuming", sort, sorts, #sorts)
 
         Tooltip(
             "Whether to sort based on the time of each note, or the " ..
             "position in which a note is placed in the chart."
+        )
+
+        _, initial = imgui.InputFloat(
+            "initial sv",
+            initial,
+            0,
+            0,
+            "%.2f",
+            textFlags
+        )
+
+        Tooltip(
+            "Every .qua file can specify an 'InitialScrollVelocity' which " ..
+            "is the SV multiplier used before the first SV in the chart. " ..
+            "Currently there is no way to get this value, so it's a " ..
+            "parameter instead. Chances are, it's the default 1, but if " ..
+            "it's not, you can change this value. Once the game updates to " ..
+            "allow retrival of this value, this parameter will be removed."
         )
     end
 
@@ -1203,7 +1224,7 @@ function ShowNoteInfo(show)
     else
         lastSelectables = {}
         lastSelectables[#objects * 2] = nil
-        local markers = positionMarkers(term == 1, mode == 1)
+        local markers = positionMarkers(term == 1, mode == 1, initial)
 
         for i = 1, #objects, 1 do
             local obj = objects[i]
@@ -1280,6 +1301,7 @@ function ShowNoteInfo(show)
     state.SetValue("term", term)
     state.SetValue("order", order)
     state.SetValue("sort", sort)
+    state.SetValue("initial", initial)
     state.SetValue("inclusive", inclusive)
     state.SetValue("positionFrom", from)
     state.SetValue("positionTo", to)
