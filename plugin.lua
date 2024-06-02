@@ -19,6 +19,7 @@ local lastCustomString
 local lastSelected = 0
 local lastShow = false
 local lastPeriod = 0
+local e = math.exp(1)
 local lastAfter = 0
 local lastCount = 0
 local lastEase = ""
@@ -76,7 +77,7 @@ function draw()
     local amp = get("amp", 1) ---@type number
     local period = get("period", 1) ---@type number
     local after = get("after", 0) ---@type integer
-    local by = get("by", math.exp(1)) ---@type number
+    local by = get("by", e) ---@type number
     local op = get("op", 0) ---@type number
     local show = get("show", false) ---@type boolean
     local advanced = get("advanced", false) ---@type boolean
@@ -568,9 +569,9 @@ end
 --- @param field string
 --- @param message string
 --- @param inclusive number
---- @param from number
---- @param to number
-function fullClipboard(field, message, inclusive, from, to)
+--- @param min number
+--- @param max number
+function fullClipboard(field, message, inclusive, min, max)
     if #lastSelectables == 0 then
         print("Nothing to copy. Please select notes first.")
         return
@@ -580,8 +581,7 @@ function fullClipboard(field, message, inclusive, from, to)
     local clipboard = ""
 
     if first and (inclusive == 0 or ((inclusive == 1) ==
-        (first.position >= math.min(from, to) and
-        first.position <= math.max(from, to)))) then
+        (first.position >= min and first.position <= max))) then
         clipboard = first[field]
 
         if field == "time" then
@@ -604,8 +604,7 @@ function fullClipboard(field, message, inclusive, from, to)
             local next = lastSelectables[i]
 
             if next and (inclusive == 0 or ((inclusive == 1) ==
-                (next.position >= math.min(from, to) and
-                next.position <= math.max(from, to)))) then
+                (next.position >= min and next.position <= max))) then
                 clipboard = clipboard .. separator .. next[field]
 
                 if field == "time" then
@@ -724,16 +723,47 @@ end
 --- @param op number
 --- @return number
 function handleOperation(x, y, op)
-    return ({
-        x * y,
-        x + y,
-        x - y,
-        x / y,
-        x % y,
-        y,
-        math.min(x, y),
-        math.max(x, y)
-    })[op + 1] or error("Not implemented: " .. op)
+    if op == 0 then
+        return x * y
+    end
+
+    if op == 1 then
+        return x + y
+    end
+
+    if op == 2 then
+        return x - y
+    end
+
+    if op == 3 then
+        return x / y
+    end
+
+    if op == 4 then
+        return x % y
+    end
+
+    if op == 5 then
+        return y
+    end
+
+    if op == 6 then
+        if x <= y then
+            return x
+        end
+
+        return y
+    end
+
+    if op == 7 then
+        if x >= y then
+            return x
+        end
+
+        return y
+    end
+
+    error("Not implemented: " .. op)
 end
 
 --- Converts a note to a string.
@@ -789,7 +819,15 @@ end
 --- @param max number
 --- @return number
 function clamp(value, min, max)
-    return math.min(math.max(value, min), max)
+    if value < min then
+        return min
+    end
+
+    if value > max then
+        return max
+    end
+
+    return value
 end
 
 --- Gets the value from the current state.
@@ -849,7 +887,11 @@ end
 --- @return function
 function max(by)
     return function(x)
-        return math.max(x, by)
+        if x < by then
+            return by
+        end
+
+        return x
     end
 end
 
@@ -859,7 +901,11 @@ end
 --- @return function
 function min(by)
     return function(x)
-        return math.min(x, by)
+        if x > by then
+            return by
+        end
+
+        return x
     end
 end
 
@@ -934,8 +980,14 @@ function Plot(from, to, op, after, by, amp, period, ease, count, custom)
             local a = handleOperation(1, fm, op)
             local v = afterfn(after, by)(a)
             heightValues[i + 1] = v
-            heightMax = math.max(v, heightMax)
-            heightMin = math.min(v, heightMin)
+
+            if v > heightMax then
+                heightMax = v
+            end
+
+            if v < heightMin then
+                heightMin = v
+            end
         end
 
         -- Custom needs to be updated after the calls to 'tween', because
@@ -979,7 +1031,7 @@ function ShowCalculator()
     imgui.PopItemWidth()
 
     Tooltip("The number of calculators.\nEach text field is independent.", 225)
-    calculators = clamp(calculators, 1, 16)
+    calculators = clamp(calculators, 1, 20)
 
     state.SetValue("calculators", calculators)
     state.SetValue("precise", precise)
@@ -1047,7 +1099,7 @@ function ShowNoteInfo(show)
     local objects = state.SelectedHitObjects
     local name = "mulch position"
 
-    imgui.PushStyleVar(imgui_style_var.WindowMinSize, { 220, 465 })
+    imgui.PushStyleVar(imgui_style_var.WindowMinSize, { 235, 465 })
     imgui.Begin(name)
     imgui.PopStyleVar(imgui_style_var.WindowMinSize)
 
@@ -1092,7 +1144,7 @@ function ShowNoteInfo(show)
         )
 
         _, initial = imgui.InputFloat(
-            "initial sv",
+            "initial sv in",
             initial,
             0,
             0,
@@ -1129,6 +1181,16 @@ function ShowNoteInfo(show)
         to = vs[2]
     end
 
+    local min, max
+
+    if from <= to then
+        min = from
+        max = to
+    else
+        min = to
+        max = from
+    end
+
     imgui.Separator()
     local selectCountLabel
 
@@ -1141,11 +1203,11 @@ function ShowNoteInfo(show)
     end
 
     if imgui.Selectable(selectCountLabel) then
-        fullClipboard("position", "msx values", inclusive, from, to)
+        fullClipboard("position", "msx values", inclusive, min, max)
     elseif imgui.IsItemClicked(1) then
-        fullClipboard("time", "object timestamps", inclusive, from, to)
+        fullClipboard("time", "object timestamps", inclusive, min, max)
     elseif imgui.IsItemClicked(2) then
-        fullClipboard("string", "text", inclusive, from, to)
+        fullClipboard("string", "text", inclusive, min, max)
     end
 
     Tooltip(
@@ -1206,8 +1268,7 @@ function ShowNoteInfo(show)
         for _, v in ipairs(lastSelectables) do
             if v and
                 (inclusive == 0 or ((inclusive == 1) ==
-                (v.position >= math.min(from, to) and
-                v.position <= math.max(from, to)))) then
+                (v.position >= min and v.position <= max))) then
                 if imgui.Selectable(v.string) then
                     imgui.SetClipboardText(v.position)
                     print("Copied '" .. v.position .. "' to clipboard.")
@@ -1241,8 +1302,7 @@ function ShowNoteInfo(show)
             lastSelectables[i * 2 - 1] = start
 
             if (inclusive == 0 or ((inclusive == 1) ==
-                (position >= math.min(from, to) and
-                position <= math.max(from, to)))) then
+                (position >= min and position <= max))) then
                 if imgui.Selectable(start.string) then
                     imgui.SetClipboardText(position)
                     print("Copied '" .. position .. "' to clipboard.")
@@ -1274,8 +1334,7 @@ function ShowNoteInfo(show)
                 lastSelectables[i * 2] = ending
 
                 if (inclusive == 0 or ((inclusive == 1) ==
-                    (position >= math.min(from, to) and
-                    position <= math.max(from, to)))) then
+                    (position >= min and position <= max))) then
                     if imgui.Selectable(ending.string) then
                         imgui.SetClipboardText(endPosition)
                         print("Copied '" .. endPosition .. "' to clipboard.")
