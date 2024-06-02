@@ -14,12 +14,12 @@ local lastPosition = { 1635, 95 }
 local lastLaneOfFirstNote = 0
 local lastSize = { 0, 200 }
 local lastSelectables = {}
+local math_e = math.exp(1)
 local lastCustomFunction
 local lastCustomString
 local lastSelected = 0
 local lastShow = false
 local lastPeriod = 0
-local e = math.exp(1)
 local lastAfter = 0
 local lastCount = 0
 local lastEase = ""
@@ -77,7 +77,7 @@ function draw()
     local amp = get("amp", 1) ---@type number
     local period = get("period", 1) ---@type number
     local after = get("after", 0) ---@type integer
-    local by = get("by", e) ---@type number
+    local by = get("by", math_e) ---@type number
     local op = get("op", 0) ---@type number
     local show = get("show", false) ---@type boolean
     local advanced = get("advanced", false) ---@type boolean
