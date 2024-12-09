@@ -1,3 +1,4 @@
+---@diagnostic disable: need-check-nil, param-type-mismatch, undefined-global
 --- @class HitObjectInfo
 --- @field StartTime number
 --- @field Lane number
@@ -82,6 +83,7 @@ function draw()
     local show = get("show", false) ---@type boolean
     local advanced = get("advanced", false) ---@type boolean
     local custom = get("custom", "") ---@type string
+    local ssf = get("ssf", false) ---@type boolean
 
     imgui.BeginTabBar("mode", imgui_tab_bar_flags.NoTooltip)
 
@@ -250,7 +252,7 @@ function draw()
         "section",
         "I",
         section,
-        { from, to, op, after, by, amp, period, ease, custom },
+        { from, to, op, after, by, amp, period, ease, custom, ssf },
         "'from' is applied from the start of the selection.\n" ..
         "'to' is applied to the end of the selection."
     )
@@ -258,10 +260,10 @@ function draw()
     imgui.SameLine(0, padding)
 
     ActionButton(
-        "per note",
+        "note",
         "O",
         perNote,
-        { from, to, op, after, by, amp, period, ease, custom },
+        { from, to, op, after, by, amp, period, ease, custom, ssf },
         "'from' is applied from the selected note.\n" ..
         "'to' is applied just before next selected note."
     )
@@ -270,16 +272,20 @@ function draw()
         imgui.SameLine(0, padding)
 
         ActionButton(
-            "per sv",
+            "sv",
             "P",
             perSV,
-            { from, to, op, after, ease, by, amp, period, count, custom },
+            { from, to, op, after, ease, by, amp, period, count, custom, ssf },
             "Smear tool, adds SVs in-between existing SVs." ..
             "'from' and 'to' function identically to 'section'."
         )
 
         ShowNoteInfo(show)
         Plot(from, to, op, after, by, amp, period, ease, count, custom)
+
+        imgui.SameLine(0, padding)
+        _, ssf = imgui.Checkbox("ssf", ssf)
+        Tooltip("Transforms SSFs instead of SVs.")
     end
 
     state.SetValue("from", from)
@@ -295,6 +301,7 @@ function draw()
     state.SetValue("show", show)
     state.SetValue("advanced", advanced)
     state.SetValue("custom", custom)
+    state.SetValue("ssf", ssf)
 
     imgui.End()
 end
@@ -306,9 +313,10 @@ end
 --- @param after integer
 --- @param by number
 --- @param ease string
-function section(from, to, op, after, by, amp, period, ease, custom)
+--- @param ssf boolean
+function section(from, to, op, after, by, amp, period, ease, custom, ssf)
     local offsets = uniqueSelectedNoteOffsets()
-    local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
+    local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets], ssf)
 
     if not svs[1] then
         print("Please select the region to modify before pressing this button.")
@@ -325,12 +333,17 @@ function section(from, to, op, after, by, amp, period, ease, custom)
         local fm = tween(f, from, to, amp, period, ease, sv.Multiplier, custom)
         local a = handleOperation(sv.Multiplier, fm, op)
         local v = afterfn(after, by)(a)
-        svsToAdd[i] = utils.CreateScrollVelocity(sv.StartTime, v)
+
+        if ssf then
+            svsToAdd[i] = utils.CreateScrollSpeedFactor(sv.StartTime, v)
+        else
+            svsToAdd[i] = utils.CreateScrollVelocity(sv.StartTime, v)
+        end
     end
 
     actions.PerformBatch({
-        utils.CreateEditorAction(action_type.RemoveScrollVelocityBatch, svs),
-        utils.CreateEditorAction(action_type.AddScrollVelocityBatch, svsToAdd)
+        utils.CreateEditorAction(ternary(ssf, action_type.RemoveScrollSpeedFactorBatch, action_type.RemoveScrollVelocityBatch), svs),
+        utils.CreateEditorAction(ternary(ssf, action_type.AddScrollSpeedFactorBatch, action_type.AddScrollVelocityBatch), svsToAdd)
     })
 end
 
@@ -341,9 +354,10 @@ end
 --- @param after integer
 --- @param by number
 --- @param ease string
-function perNote(from, to, op, after, by, amp, period, ease, custom)
+--- @param ssf boolean
+function perNote(from, to, op, after, by, amp, period, ease, custom, ssf)
     local offsets = uniqueSelectedNoteOffsets()
-    local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
+    local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets], ssf)
 
     if not svs[1] then
         print("Please select the region to modify before pressing this button.")
@@ -359,12 +373,17 @@ function perNote(from, to, op, after, by, amp, period, ease, custom)
         local fm = tween(f, from, to, amp, period, ease, sv.Multiplier, custom)
         local a = handleOperation(sv.Multiplier, fm, op)
         local v = afterfn(after, by)(a)
-        svsToAdd[i] = utils.CreateScrollVelocity(sv.StartTime, v)
+
+        if ssf then
+            svsToAdd[i] = utils.CreateScrollSpeedFactor(sv.StartTime, v)
+        else
+            svsToAdd[i] = utils.CreateScrollVelocity(sv.StartTime, v)
+        end
     end
 
     actions.PerformBatch({
-        utils.CreateEditorAction(action_type.RemoveScrollVelocityBatch, svs),
-        utils.CreateEditorAction(action_type.AddScrollVelocityBatch, svsToAdd)
+        utils.CreateEditorAction(ternary(ssf, action_type.RemoveScrollSpeedFactorBatch, action_type.RemoveScrollVelocityBatch), svs),
+        utils.CreateEditorAction(ternary(ssf, action_type.AddScrollSpeedFactorBatch, action_type.AddScrollVelocityBatch), svsToAdd)
     })
 end
 
@@ -376,9 +395,10 @@ end
 --- @param by number
 --- @param ease string
 --- @param count integer
-function perSV(from, to, op, after, ease, by, amp, period, count, custom)
+--- @param ssf boolean
+function perSV(from, to, op, after, ease, by, amp, period, count, custom, ssf)
     local offsets = uniqueSelectedNoteOffsets()
-    local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets])
+    local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets], ssf)
 
     if not svs[2] then
         print("The selected region must contain at least 2 SV points.")
@@ -407,20 +427,32 @@ function perSV(from, to, op, after, ease, by, amp, period, count, custom)
             local a = handleOperation(sv.Multiplier, fm, op)
             local v = afterfn(after, by)(a)
             last = last + 1
-            svsToAdd[last] = utils.CreateScrollVelocity(gm, v)
+
+            if ssf then
+                svsToAdd[last] = utils.CreateScrollSpeedFactor(gm, v)
+            else
+                svsToAdd[last] = utils.CreateScrollVelocity(gm, v)
+            end
         end
     end
 
     local final = svs[#svs]
 
-    svsToAdd[#svsToAdd + 1] = utils.CreateScrollVelocity(
-        final.StartTime,
-        final.Multiplier
-    )
+    if ssf then
+        svsToAdd[#svsToAdd + 1] = utils.CreateScrollSpeedFactor(
+            final.StartTime,
+            final.Multiplier
+        )
+    else
+        svsToAdd[#svsToAdd + 1] = utils.CreateScrollVelocity(
+            final.StartTime,
+            final.Multiplier
+        )
+    end
 
     actions.PerformBatch({
-        utils.CreateEditorAction(action_type.RemoveScrollVelocityBatch, svs),
-        utils.CreateEditorAction(action_type.AddScrollVelocityBatch, svsToAdd)
+        utils.CreateEditorAction(ternary(ssf, action_type.RemoveScrollSpeedFactorBatch, action_type.RemoveScrollVelocityBatch), svs),
+        utils.CreateEditorAction(ternary(ssf, action_type.AddScrollSpeedFactorBatch, action_type.AddScrollVelocityBatch), svsToAdd)
     })
 end
 
@@ -548,15 +580,27 @@ end
 --- Returns the chronologically ordered list of SVs between two offsets/times
 --- @param startOffset number
 --- @param endOffset number
+--- @param ssf boolean
 --- @return ScrollVelocityInfo[]
-function getSVsBetweenOffsets(startOffset, endOffset)
+function getSVsBetweenOffsets(startOffset, endOffset, ssf)
     if startOffset == nil or endOffset == nil then
         return {}
     end
 
     local svsBetweenOffsets = {}
+    local svs
 
-    for _, sv in ipairs(map.ScrollVelocities) do
+    if ssf then
+        svs = map.ScrollSpeedFactors
+    else
+        svs = map.ScrollVelocities
+    end
+
+    if not svs then
+        return {}
+    end
+
+    for _, sv in ipairs(svs) do
         if sv.StartTime >= startOffset and sv.StartTime < endOffset then
             table.insert(svsBetweenOffsets, sv)
         end
@@ -828,6 +872,20 @@ function clamp(value, min, max)
     end
 
     return value
+end
+
+--- Performs the ternary operation.
+--- @generic T
+--- @param condition boolean
+--- @param consequent T
+--- @param alternative T
+--- @return T
+function ternary(condition, consequent, alternative)
+    if condition then
+        return consequent
+    end
+
+    return alternative
 end
 
 --- Gets the value from the current state.
