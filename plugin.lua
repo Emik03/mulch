@@ -167,9 +167,6 @@ function draw()
             end
 
             if types[type + 1] == "custom" then
-                imgui.SameLine(0, padding)
-                _, custom = imgui.InputTextMultiline("", custom, 1000, {110, 70})
-
                 Tooltip(
                     "Specify a custom easing function here.\n" ..
                     "$t = time: [0, 1]\n" ..
@@ -178,6 +175,8 @@ function draw()
                     "$d = duration: always 1\n" ..
                     "$v = velocity: current SV multiplier"
                 )
+
+                _, custom = imgui.InputTextMultiline("", custom, 1000, {240, 70})
             end
 
             imgui.Separator()
