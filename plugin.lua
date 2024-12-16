@@ -1894,7 +1894,7 @@ function easings()
                     :gsub("$v", v)
                 )
 
-                return value or 0
+                return tonumber(value) or (0 / 0)
             end
         end
     }
