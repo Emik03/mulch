@@ -168,9 +168,7 @@ function draw()
 
             if types[type + 1] == "custom" then
                 imgui.SameLine(0, padding)
-                imgui.PushItemWidth(150)
-                _, custom = imgui.InputText("", custom, 1000)
-                imgui.PopItemWidth()
+                _, custom = imgui.InputTextMultiline("", custom, 1000, {110, 70})
 
                 Tooltip(
                     "Specify a custom easing function here.\n" ..
