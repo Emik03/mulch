@@ -15,13 +15,11 @@ local lastPosition = { 1635, 95 }
 local lastLaneOfFirstNote = 0
 local lastSize = { 0, 200 }
 local lastSelectables = {}
-local math_e = math.exp(1)
 local lastCustomFunction
 local lastCustomString
 local lastSelected = 0
 local lastShow = false
 local lastPeriod = 0
-local lastAfter = 0
 local lastCount = 0
 local lastEase = ""
 local lastFrom = 0
@@ -30,7 +28,6 @@ local lastTerm = 0
 local heightValues
 local lastOp = 0
 local lastAmp = 0
-local lastBy = 0
 local lastTo = 0
 local heightMax
 local heightMin
@@ -38,19 +35,13 @@ local textFlags
 local lastOrder
 local lastSort
 
-local afters = {
-    "none", "abs", "acos", "asin", "atan", "ceil", "cos", "deg",
-    "exp", "floor", "frac", "int", "log", "max", "min", "modf",
-    "pow", "rad", "random", "sin", "sqrt", "tan"
-}
-
 local dirs = { "in", "out", "inOut", "outIn" }
 local modes = { "absolute", "relative" }
 local inclusives = { "unfiltered", "within", "not within" }
 
 local ops = {
     "multiply", "add", "subtract", "divide",
-    "modulo", "replace", "min", "max"
+    "modulo", "pow", "replace"
 }
 
 local orders = { "ascending", "descending" }
@@ -62,6 +53,25 @@ local types = {
     "expo", "circ", "elastic", "back", "bounce", "custom"
 }
 
+local keybinds = read()
+
+if not keybinds then
+    keybinds = {
+        swap = "U",
+        section = "I",
+        note = "O",
+        ["eat mulch"] = "P",
+    }
+
+    write(keybinds)
+end
+
+for _, value in pairs(keybinds) do
+    if not keys[value] then
+        error("Unrecognized key: " .. value)
+    end
+end
+
 --- The main function
 function draw()
     textFlags = imgui_input_text_flags.CharsScientific
@@ -69,7 +79,7 @@ function draw()
     Theme()
 
     local padding = 10
-    local dropdownWidth = 103
+    local dropdownWidth = 100
     local from = get("from", 0) ---@type number
     local to = get("to", 1) ---@type number
     local count = get("count", 2) ---@type integer
@@ -77,11 +87,10 @@ function draw()
     local direction = get("direction", 0) ---@type integer
     local amp = get("amp", 1) ---@type number
     local period = get("period", 1) ---@type number
-    local after = get("after", 0) ---@type integer
-    local by = get("by", math_e) ---@type number
     local op = get("op", 0) ---@type number
     local show = get("show", false) ---@type boolean
     local advanced = get("advanced", false) ---@type boolean
+    local mulchmax = get("mulchmax", false) ---@type boolean
     local custom = get("custom", "") ---@type string
     local ssf = get("ssf", false) ---@type boolean
 
@@ -90,195 +99,159 @@ function draw()
     if imgui.BeginTabItem("simple") then
     	imgui.EndTabItem()
     	advanced = false
+        mulchmax = false
     end
 
     if imgui.BeginTabItem("advanced") then
     	imgui.EndTabItem()
     	advanced = true
+        mulchmax = false
+    end
+
+    if imgui.BeginTabItem("mulchmax") then
+    	imgui.EndTabItem()
+        mulchmax = true
     end
 
     imgui.EndTabBar()
 
-    if advanced then
+    if not mulchmax then
+        if advanced then
+            ActionButton(
+                "swap",
+                keybinds.swap,
+                function()
+                    from, to = to, from
+                end,
+                { },
+                "Swaps the parameters for the 'from' and 'to' values."
+            )
+
+            imgui.SameLine(0, padding)
+        end
+
+        imgui.PushItemWidth(150)
+        local _, ft = imgui.InputFloat2("", { from, to }, "%.2f", textFlags)
+        imgui.PopItemWidth()
+        from = ft[1]
+        to = ft[2]
+
+        local ease
+
+        if advanced then
+            imgui.PushItemWidth(dropdownWidth)
+            _, type = imgui.Combo("##type", type, types, #types)
+            imgui.PopItemWidth()
+
+            if not ({ custom = 0, linear = 0 })[types[type + 1]] then
+                imgui.SameLine(0, padding)
+                imgui.PushItemWidth(dropdownWidth)
+                _, direction = imgui.Combo("##direction", direction, dirs, #dirs)
+                imgui.PopItemWidth()
+            end
+
+            if types[type + 1] == "elastic" then
+                imgui.PushItemWidth(150)
+
+                local _, vs = imgui.InputFloat2(
+                    "amp/period",
+                    { amp, period },
+                    "%.2f",
+                    textFlags
+                )
+
+                imgui.PopItemWidth()
+                Tooltip("The elasticity severity, and frequency, respectively.")
+                amp = vs[1]
+                period = vs[2]
+            end
+
+            if types[type + 1] == "custom" then
+                imgui.SameLine(0, padding)
+                imgui.PushItemWidth(150)
+                _, custom = imgui.InputText("", custom, 1000)
+                imgui.PopItemWidth()
+
+                Tooltip(
+                    "Specify a custom easing function here.\n" ..
+                    "$t = time: [0, 1]\n" ..
+                    "$b = begin: 'from' parameter\n" ..
+                    "$c = change: 'to' - 'from'\n" ..
+                    "$d = duration: always 1\n" ..
+                    "$v = velocity: current SV multiplier"
+                )
+            end
+
+            imgui.Separator()
+            imgui.PushItemWidth(dropdownWidth)
+            _, op = imgui.Combo("##op", op, ops, #ops)
+            imgui.PopItemWidth()
+
+            if advanced then
+                imgui.SameLine(0, padding)
+                _, ssf = imgui.Checkbox("ssf", ssf)
+                Tooltip("Apply changes to SSFs instead of SVs.")
+            end
+
+            ease = fulleasename(type, direction)
+        else
+            Tooltip(
+                "The left field is 'from', which is used at the start of the " ..
+                "selection. The right value is 'to', for the end. Within the " ..
+                "selection, the value used is an interpolation between the " ..
+                "'from' and 'to' values."
+            )
+
+            ease = "linear"
+        end
+
+        imgui.Separator()
+
         ActionButton(
-            "swap",
-            "U",
-            function()
-                from, to = to, from
-            end,
-            { },
-            "Swaps the parameters for the 'from' and 'to' values."
+            "section",
+            keybinds.section,
+            section,
+            { from, to, op, amp, period, ease, custom, ssf },
+            "'from' is applied from the start of the selection.\n" ..
+            "'to' is applied to the end of the selection."
         )
 
         imgui.SameLine(0, padding)
-    end
 
-    local fromToText = ""
-
-    if advanced then
-    	fromToText = "from/to"
-    end
-
-    imgui.PushItemWidth(163)
-    local _, ft = imgui.InputFloat2(fromToText, { from, to }, "%.2f", textFlags)
-    imgui.PopItemWidth()
-    from = ft[1]
-    to = ft[2]
-
-    local tooltipPaddingOverride = nil
-
-    if not advanced then
-    	tooltipPaddingOverride = 177
-    end
-
-    Tooltip(
-        "The left field is 'from', which is used at the start of the " ..
-        "selection. The right value is 'to', for the end. Within the " ..
-        "selection, the value used is an interpolation between the " ..
-        "'from' and 'to' values.",
-        tooltipPaddingOverride
-    )
-
-    local ease
-
-    if advanced then
-        _, count = imgui.InputInt("count", count, 1, 1, textFlags)
-        Tooltip("The number of SVs to place between each SV in 'sv'")
-        count = clamp(count, 1, 1024)
-        imgui.Separator()
-
-        imgui.PushItemWidth(dropdownWidth)
-        _, type = imgui.Combo("type", type, types, #types)
-        imgui.PopItemWidth()
-
-        if not ({ custom = 0, linear = 0 })[types[type + 1]] then
-            imgui.SameLine(0, padding)
-            imgui.PushItemWidth(dropdownWidth)
-            _, direction = imgui.Combo("direction", direction, dirs, #dirs)
-            imgui.PopItemWidth()
-        end
-
-        if types[type + 1] == "elastic" then
-            imgui.PushItemWidth(215)
-
-            local _, vs = imgui.InputFloat2(
-                "amp/period",
-                { amp, period },
-                "%.2f",
-                textFlags
-            )
-
-            imgui.PopItemWidth()
-            Tooltip("The elasticity severity, and frequency, respectively.")
-            amp = vs[1]
-            period = vs[2]
-        end
-
-        if types[type + 1] == "custom" then
-            imgui.SameLine(0, padding)
-            imgui.PushItemWidth(150)
-            _, custom = imgui.InputText("", custom, 1000)
-            imgui.PopItemWidth()
-
-            Tooltip(
-                "Specify a custom easing function here.\n" ..
-                "$t = time: [0, 1]\n" ..
-                "$b = begin: 'from' parameter\n" ..
-                "$c = change: 'to' - 'from'\n" ..
-                "$d = duration: always 1\n" ..
-                "$v = velocity: current SV multiplier"
-            )
-        end
-
-        imgui.Separator()
-        imgui.PushItemWidth(dropdownWidth)
-        _, after = imgui.Combo("after", after, afters, #afters)
-        imgui.PopItemWidth()
-
-        Tooltip(
-            "The mathematical operation to apply to every result " ..
-            "of a tween calculation before SV placement."
+        ActionButton(
+            "note",
+            keybinds.note,
+            perNote,
+            { from, to, op, amp, period, ease, custom, ssf },
+            "'from' is applied from the selected note.\n" ..
+            "'to' is applied just before next selected note."
         )
 
-        local special = { atan = 0, log = 0, min = 0, max = 0, pow = 0 }
-
-        if special[afters[after + 1]] then
-            imgui.SameLine(0, padding)
-            imgui.PushItemWidth(dropdownWidth)
-            _, by = imgui.InputDouble("by", by, 0, 0, "%.2f", textFlags)
-            imgui.PopItemWidth()
-
-            Tooltip(
-                "This 'after' option is a binary operation, which means " ..
-                "requiring 2 inputs. In this case, the first is the current " ..
-                "SV, and the second is this field."
-            )
-        end
-
-        imgui.PushItemWidth(dropdownWidth)
-        _, op = imgui.Combo("operation", op, ops, #ops)
-        imgui.PopItemWidth()
-
-        Tooltip(
-            "Determines how the existing SV and tweener are combined " ..
-            "into one value that becomes the new SV."
-        )
-
-        imgui.SameLine(0, padding)
-        _, show = imgui.Checkbox("note info", show)
-
-        Tooltip(
-            "When enabled, displays SV distance of selected notes in a " ..
-            "window. Potentially laggy when selecting close to the end, " ..
-            "hence disabled by default."
-        )
-
-        ease = fulleasename(type, direction)
+        Plot(from, to, op, amp, period, ease, count, custom)
     else
-        ease = "linear"
-    end
-
-    imgui.Separator()
-
-    ActionButton(
-        "section",
-        "I",
-        section,
-        { from, to, op, after, by, amp, period, ease, custom, ssf },
-        "'from' is applied from the start of the selection.\n" ..
-        "'to' is applied to the end of the selection."
-    )
-
-    imgui.SameLine(0, padding)
-
-    ActionButton(
-        "note",
-        "O",
-        perNote,
-        { from, to, op, after, by, amp, period, ease, custom, ssf },
-        "'from' is applied from the selected note.\n" ..
-        "'to' is applied just before next selected note."
-    )
-
-    if advanced then
-        imgui.SameLine(0, padding)
+        imgui.PushItemWidth(170)
+        _, count = imgui.InputInt("count", count, 1, 1, textFlags)
+        imgui.PopItemWidth()
+        Tooltip("The number of SVs to place between each SV in 'sv'")
+        count = clamp(count, 1, 2000)
+        imgui.Separator()
 
         ActionButton(
-            "sv",
-            "P",
+            "eat mulch",
+            keybinds["eat mulch"],
             perSV,
-            { from, to, op, after, ease, by, amp, period, count, custom, ssf },
+            { from, to, op, ease, amp, period, count, custom, ssf },
             "Smear tool, adds SVs in-between existing SVs." ..
             "'from' and 'to' function identically to 'section'."
         )
-
-        ShowNoteInfo(show)
-        Plot(from, to, op, after, by, amp, period, ease, count, custom)
-        imgui.SameLine(0, padding)
     end
 
-    _, ssf = imgui.Checkbox("ssf", ssf)
-    Tooltip("Transforms SSFs instead of SVs.")
+    if advanced or mulchmax then
+        imgui.SameLine(0, padding)
+        _, show = imgui.Checkbox("info", show)
+        ShowNoteInfo(show)
+    end
+
     state.SetValue("from", from)
     state.SetValue("to", to)
     state.SetValue("count", count)
@@ -286,11 +259,10 @@ function draw()
     state.SetValue("direction", direction)
     state.SetValue("amp", amp)
     state.SetValue("period", period)
-    state.SetValue("after", after)
-    state.SetValue("by", by)
     state.SetValue("op", op)
     state.SetValue("show", show)
     state.SetValue("advanced", advanced)
+    state.SetValue("mulchmax", mulchmax)
     state.SetValue("custom", custom)
     state.SetValue("ssf", ssf)
 
@@ -301,11 +273,9 @@ end
 --- @param from number
 --- @param to number
 --- @param op number
---- @param after integer
---- @param by number
 --- @param ease string
 --- @param ssf boolean
-function section(from, to, op, after, by, amp, period, ease, custom, ssf)
+function section(from, to, op, amp, period, ease, custom, ssf)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets], ssf)
 
@@ -322,8 +292,7 @@ function section(from, to, op, after, by, amp, period, ease, custom, ssf)
             (svs[#svs].StartTime - svs[1].StartTime)
 
         local fm = tween(f, from, to, amp, period, ease, sv.Multiplier, custom)
-        local a = handleOperation(sv.Multiplier, fm, op)
-        local v = afterfn(after, by)(a)
+        local v = handleOperation(sv.Multiplier, fm, op)
 
         if ssf then
             svsToAdd[i] = utils.CreateScrollSpeedFactor(sv.StartTime, v)
@@ -342,11 +311,9 @@ end
 --- @param from number
 --- @param to number
 --- @param op number
---- @param after integer
---- @param by number
 --- @param ease string
 --- @param ssf boolean
-function perNote(from, to, op, after, by, amp, period, ease, custom, ssf)
+function perNote(from, to, op, amp, period, ease, custom, ssf)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets], ssf)
 
@@ -362,8 +329,7 @@ function perNote(from, to, op, after, by, amp, period, ease, custom, ssf)
         local b, e = findAdjacentNotes(sv, offsets)
         local f = (sv.StartTime - b) / (e - b)
         local fm = tween(f, from, to, amp, period, ease, sv.Multiplier, custom)
-        local a = handleOperation(sv.Multiplier, fm, op)
-        local v = afterfn(after, by)(a)
+        local v = handleOperation(sv.Multiplier, fm, op)
 
         if ssf then
             svsToAdd[i] = utils.CreateScrollSpeedFactor(sv.StartTime, v)
@@ -382,12 +348,10 @@ end
 --- @param from number
 --- @param to number
 --- @param op number
---- @param after integer
---- @param by number
 --- @param ease string
 --- @param count integer
 --- @param ssf boolean
-function perSV(from, to, op, after, ease, by, amp, period, count, custom, ssf)
+function perSV(from, to, op, ease, amp, period, count, custom, ssf)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets], ssf)
 
@@ -415,8 +379,7 @@ function perSV(from, to, op, after, ease, by, amp, period, count, custom, ssf)
             local g = j / (count - 0.0)
             local fm = tween(f, from, to, amp, period, ease, multiplier, custom)
             local gm = tween(g, sv.StartTime, n.StartTime, 0, 0, gEase, 0, "")
-            local a = handleOperation(sv.Multiplier, fm, op)
-            local v = afterfn(after, by)(a)
+            local v = handleOperation(sv.Multiplier, fm, op)
             last = last + 1
 
             if ssf then
@@ -463,7 +426,7 @@ function positionMarkers(nsv, relative)
     if nsv then
         return function(time)
             first = first or time
-            return math.floor(toF32((time - first) * 100))
+            return math.floor(utils.ToFloat((time - first) * 100))
         end
     end
 
@@ -486,56 +449,34 @@ function positionMarkers(nsv, relative)
 
         if #svs == 0 or time < svs[1].StartTime then
             first = first or time
-            local next = toF32((time - first) * initial)
-            return math.floor(toF32(next * 100))
+            local next = utils.ToFloat((time - first) * initial)
+            return math.floor(utils.ToFloat(next * 100))
         end
 
         if not pos then
             if relative then
                 pos = 0
             else
-                pos = math.floor(toF32(svs[1].StartTime * 100))
+                pos = math.floor(utils.ToFloat(svs[1].StartTime * 100))
             end
         end
 
         while index < #svs and time >= svs[index].StartTime do
             local prev = svs[index - 1]
-            local next = toF32(svs[index].StartTime - prev.StartTime)
-            next = toF32(next * prev.Multiplier)
-            next = toF32(next * 100)
-            pos = math.floor(toF32(pos + next))
+            local next = utils.ToFloat(svs[index].StartTime - prev.StartTime)
+            next = utils.ToFloat(next * prev.Multiplier)
+            next = utils.ToFloat(next * 100)
+            pos = math.floor(utils.ToFloat(pos + next))
             index = index + 1
         end
 
         local sv = svs[index - 1] or svs[#svs]
-        local t = toF32(time - sv.StartTime)
-        t = toF32(t * sv.Multiplier)
-        local ret = pos + math.floor(toF32(t * 100))
+        local t = utils.ToFloat(time - sv.StartTime)
+        t = utils.ToFloat(t * sv.Multiplier)
+        local ret = pos + math.floor(utils.ToFloat(t * 100))
         first = first or ret
         return ret - first
     end
-end
-
---- Casts the parameter to a single-precision float.
---- @param x number
---- @return number
-function toF32(x)
-    -- Lua doesn't support single-precision floats, which is tricky because
-    -- the game uses them for positioning. If we want our measure tool to be
-    -- accurate, we too need to convert our numbers to single-precision floats.
-    --
-    -- The following works because the function takes a single-precision float
-    -- that we can later access back. The way this function is intended to be
-    -- used is to wrap every calculation with this function.
-    --
-    -- This is because for any binary operation `(f32 x, f32 y) -> f32`,
-    -- we can losslessly emulate it as `toF32((f64 x, f64 y) -> f64)`.
-    -- This cast is required for every single operation, so `(x - y) * z`
-    -- cannot be `toF32((x - y) * z)`, but `toF32(toF32(x - y) * z)`.
-    --
-    -- If you use this workaround in your own plugin, please refer to it as
-    -- "I love sticking floats onto the heap!". (and credit me)
-    return utils.CreateScrollVelocity(x, 0).StartTime
 end
 
 --- Removes duplicates from a table.
@@ -690,28 +631,6 @@ function findAdjacentNotes(sv, notes)
     return p, p
 end
 
---- Gets the function from the corresponding index returned by Combo.
---- @param after integer
---- @param by number
---- @return function
-function afterfn(after, by)
-    local name = afters[after + 1]
-
-    local overrides = {
-        atan = atan(by),
-        frac = frac,
-        int = int,
-        log = log(by),
-        max = max(by),
-        min = min(by),
-        none = id,
-        pow = pow(by),
-        random = random
-    }
-
-    return overrides[name] or math[name] or error("Not implemented: " .. name)
-end
-
 --- Calculates the tween between a range.
 --- @param f number
 --- @param from number
@@ -779,22 +698,10 @@ function handleOperation(x, y, op)
     end
 
     if op == 5 then
-        return y
+        return x ^ y
     end
 
     if op == 6 then
-        if x <= y then
-            return x
-        end
-
-        return y
-    end
-
-    if op == 7 then
-        if x >= y then
-            return x
-        end
-
         return y
     end
 
@@ -887,93 +794,11 @@ function get(identifier, defaultValue)
     return state.GetValue(identifier) or defaultValue
 end
 
---- Gives the function to take the arc tangent of
---- its argument by the argument passed in here.
---- @param by number
---- @return function
-function atan(by)
-    return function(x)
-        return math.atan(x, by)
-    end
-end
-
---- Gets the fractional part of the number.
---- @param x number
---- @return number
-function frac(x)
-    local _, ret = math.modf(x)
-    return ret
-end
-
 --- Returns the argument (identity function).
 --- @param x any
 --- @return any
 function id(x)
     return x
-end
-
---- Gets the integral part of the number.
---- @param x number
---- @return number
-function int(x)
-    local ret, _ = math.modf(x)
-    return ret
-end
-
---- Gives the function to take the logarithm of its argument
---- by the base of the argument passed in here.
---- @param by number
---- @return function
-function log(by)
-    return function(x)
-        return math.log(x, by)
-    end
-end
-
---- Gives the function to take the max of its
---- argument or the argument passed in here.
---- @param by number
---- @return function
-function max(by)
-    return function(x)
-        if x < by then
-            return by
-        end
-
-        return x
-    end
-end
-
---- Gives the function to take the min of its
---- argument or the argument passed in here.
---- @param by number
---- @return function
-function min(by)
-    return function(x)
-        if x > by then
-            return by
-        end
-
-        return x
-    end
-end
-
---- Gives the function to take the its argument
---- to the power of the argument passed in here.
---- @param by number
---- @return function
-function pow(by)
-    return function(x)
-        return x ^ by
-    end
-end
-
---- Generates a random number starting or ending
---- the number, depending on its sign.
---- @param x number
---- @return number
-function random(x)
-    return math.random() * x
 end
 
 --- Creates a button that runs a function using `from` and `to`.
@@ -996,12 +821,10 @@ end
 --- @param from number
 --- @param to number
 --- @param op number
---- @param after integer
---- @param by number
 --- @param ease string
 --- @param count number
 --- @param custom string
-function Plot(from, to, op, after, by, amp, period, ease, count, custom)
+function Plot(from, to, op, amp, period, ease, count, custom)
     if ease == "linear" then
         return
     end
@@ -1010,14 +833,11 @@ function Plot(from, to, op, after, by, amp, period, ease, count, custom)
     count = 256
 
     if from ~= lastFrom or to ~= lastTo or op ~= lastOp or
-        after ~= lastAfter or by ~= lastBy or amp ~= lastAmp or
-        period ~= lastPeriod or ease ~= lastEase or
+        amp ~= lastAmp or period ~= lastPeriod or ease ~= lastEase or
         count ~= lastCount or custom ~= lastCustomString then
         lastFrom = from
         lastTo = to
         lastOp = op
-        lastAfter = after
-        lastBy = by
         lastAmp = amp
         lastPeriod = period
         lastEase = ease
@@ -1031,8 +851,7 @@ function Plot(from, to, op, after, by, amp, period, ease, count, custom)
         for i = 0, count, 1 do
             local f = i / count
             local fm = tween(f, from, to, amp, period, ease, 1, custom)
-            local a = handleOperation(1, fm, op)
-            local v = afterfn(after, by)(a)
+            local v = handleOperation(1, fm, op)
             heightValues[i + 1] = v
 
             if v > heightMax then
@@ -1076,7 +895,7 @@ function ShowNoteInfo(show)
     end
 
     local objects = state.SelectedHitObjects
-    local name = "mulch position"
+    local name = "mulch measure"
 
     imgui.PushStyleVar(imgui_style_var.WindowMinSize, { 235, 465 })
     imgui.Begin(name)
@@ -1099,10 +918,10 @@ function ShowNoteInfo(show)
     _, term = imgui.Combo("by", term, terms, #terms)
     Tooltip("Whether distance is measured with or without considering SVs.")
 
-    local modeLabel = "time in"
+    local modeLabel = "time in##mode"
 
     if term == 0 then
-        modeLabel = ""
+        modeLabel = "##mode"
     end
 
     _, mode = imgui.Combo(modeLabel, mode, modes, #modes)
@@ -1885,6 +1704,10 @@ function easings()
         outInBounce  = outInBounce,
         custom       = function(x)
             return function(t, b, c, d, v)
+                if x == "" then
+                    return 0 / 0
+                end
+
                 local value, _ = eval(
                     "return " ..
                     x:gsub("$t", t)
