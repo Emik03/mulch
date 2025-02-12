@@ -357,6 +357,8 @@ function perSV(from, to, op, ease, amp, period, count, custom, ssf)
         return
     end
 
+    ease = fulleasename(get("type", 0), direction)
+    count = count or get("count", 2)
     local svsToAdd = {}
     local last = 0
 
