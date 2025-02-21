@@ -14,6 +14,7 @@ local lastStartTimeOfFirstNote = 0
 local lastPosition = { 1635, 95 }
 local lastLaneOfFirstNote = 0
 local lastSize = { 0, 200 }
+local lastCustomError = ""
 local lastSelectables = {}
 local lastCustomFunction
 local lastCustomString
@@ -53,21 +54,17 @@ local types = {
     "expo", "circ", "elastic", "back", "bounce", "custom"
 }
 
-local keybinds = read()
+local config = read()
+config = config or {}
+config.swap = config.swap or "U"
+config.section = config.section or "I"
+config.note = config.note or "O"
+config["eat mulch"] = config["eat mulch"] or "P"
+config["plot resolution"] = tonumber(config["plot resolution"] or 200)
+write(config)
 
-if not keybinds then
-    keybinds = {
-        swap = "U",
-        section = "I",
-        note = "O",
-        ["eat mulch"] = "P",
-    }
-
-    write(keybinds)
-end
-
-for _, value in pairs(keybinds) do
-    if not keys[value] then
+for key, value in pairs(config) do
+    if key ~= "plot resolution" and not keys[value] then
         error("Unrecognized key: " .. value)
     end
 end
@@ -91,7 +88,7 @@ function draw()
     local show = get("show", false) ---@type boolean
     local advanced = get("advanced", false) ---@type boolean
     local mulchmax = get("mulchmax", false) ---@type boolean
-    local custom = get("custom", "") ---@type string
+    local custom = get("custom", "$t") ---@type string
     local ssf = get("ssf", false) ---@type boolean
 
     imgui.BeginTabBar("mode", imgui_tab_bar_flags.NoTooltip)
@@ -119,7 +116,7 @@ function draw()
         if advanced then
             ActionButton(
                 "swap",
-                keybinds.swap,
+                config.swap,
                 function()
                     from, to = to, from
                 end,
@@ -176,7 +173,12 @@ function draw()
                     "$v = velocity: current SV multiplier"
                 )
 
-                _, custom = imgui.InputTextMultiline("", custom, 1000, {240, 70})
+                local green = rgb("#50FA7B")
+                local red = rgb("#FF5555")
+                imgui.PushStyleColor(imgui_col.Text, lastCustomError and red or green)
+                imgui.TextWrapped(lastCustomError or "function is valid")
+                imgui.PopStyleColor()
+                _, custom = imgui.InputTextMultiline("", custom, 10000, {240, 70})
             end
 
             imgui.Separator()
@@ -206,7 +208,7 @@ function draw()
 
         ActionButton(
             "section",
-            keybinds.section,
+            config.section,
             section,
             { from, to, op, amp, period, ease, custom, ssf },
             "'from' is applied from the start of the selection.\n" ..
@@ -217,7 +219,7 @@ function draw()
 
         ActionButton(
             "note",
-            keybinds.note,
+            config.note,
             perNote,
             { from, to, op, amp, period, ease, custom, ssf },
             "'from' is applied from the selected note.\n" ..
@@ -235,7 +237,7 @@ function draw()
 
         ActionButton(
             "eat mulch",
-            keybinds["eat mulch"],
+            config["eat mulch"],
             perSV,
             { from, to, op, ease, amp, period, count, custom, ssf },
             "Smear tool, adds SVs in-between existing SVs." ..
@@ -359,6 +361,7 @@ function perSV(from, to, op, ease, amp, period, count, custom, ssf)
 
     ease = fulleasename(get("type", 0), direction)
     count = count or get("count", 2)
+    custom = custom or get("custom", "$t")
     local svsToAdd = {}
     local last = 0
 
@@ -829,7 +832,7 @@ function Plot(from, to, op, amp, period, ease, count, custom)
     end
 
     imgui.Begin("mulch plot", imgui_window_flags.AlwaysAutoResize)
-    count = 256
+    count = config["plot resolution"]
 
     if from ~= lastFrom or to ~= lastTo or op ~= lastOp or
         amp ~= lastAmp or period ~= lastPeriod or ease ~= lastEase or
@@ -1703,11 +1706,7 @@ function easings()
         outInBounce  = outInBounce,
         custom       = function(x)
             return function(t, b, c, d, v)
-                if x == "" then
-                    return 0 / 0
-                end
-
-                local value, _ = eval(
+                local number, err = eval(
                     "return " ..
                     x:gsub("$t", t)
                     :gsub("$b", b)
@@ -1716,7 +1715,20 @@ function easings()
                     :gsub("$v", v)
                 )
 
-                return tonumber(value) or (0 / 0)
+                if x == "" then
+                    err = "cannot be empty"
+                elseif not number and not err then
+                    err = "cannot be nil"
+                end
+
+                local ret = number and tonumber(number)
+
+                if not ret and not err then
+                    err = "must be number-like"
+                end
+
+                lastCustomError = err
+                return err and 1 or ret
             end
         end
     }
