@@ -60,6 +60,7 @@ config.swap = config.swap or "U"
 config.section = config.section or "I"
 config.note = config.note or "O"
 config["eat mulch"] = config["eat mulch"] or "P"
+config["swap sv/ssf"] = config["swap sv/ssf"] or "L"
 config["plot resolution"] = tonumber(config["plot resolution"] or 200)
 write(config)
 
@@ -193,6 +194,20 @@ function draw()
             end
 
             ease = fulleasename(type, direction)
+            imgui.Separator()
+
+            ActionButton(
+                "swap sv/ssf",
+                config["swap sv/ssf"],
+                swapSVandSSF,
+                { },
+                "Converts SVs into SSFs, and vice versa."
+            )
+
+            imgui.SameLine(0, padding)
+            _, show = imgui.Checkbox("info", show)
+            Tooltip("Displays selected notes' positions on the playfield.")
+            ShowNoteInfo(show)
         else
             Tooltip(
                 "The left field is 'from', which is used at the start of the " ..
@@ -243,12 +258,6 @@ function draw()
             "Smear tool, adds SVs in-between existing SVs." ..
             "'from' and 'to' function identically to 'section'."
         )
-    end
-
-    if advanced or mulchmax then
-        imgui.SameLine(0, padding)
-        _, show = imgui.Checkbox("info", show)
-        ShowNoteInfo(show)
     end
 
     state.SetValue("from", from)
@@ -409,6 +418,39 @@ function perSV(from, to, op, ease, amp, period, count, custom, ssf)
     actions.PerformBatch({
         utils.CreateEditorAction(ternary(ssf, action_type.RemoveScrollSpeedFactorBatch, action_type.RemoveScrollVelocityBatch), svs),
         utils.CreateEditorAction(ternary(ssf, action_type.AddScrollSpeedFactorBatch, action_type.AddScrollVelocityBatch), svsToAdd)
+    })
+end
+
+--- Swaps SVs with SSFs and vice versa.
+function swapSVandSSF()
+    local offsets = uniqueSelectedNoteOffsets()
+    local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets], false)
+    local ssfs = getSVsBetweenOffsets(offsets[1], offsets[#offsets], true)
+
+    if #svs == 0 and #ssfs == 0 then
+        print("The selected region must contain at least 1 SV or SSF point.")
+        return
+    end
+
+    local svsToAdd = {}
+    svsToAdd[#ssfs] = nil
+
+    for i, ssf in ipairs(ssfs) do
+        svsToAdd[i] = utils.CreateScrollVelocity(ssf.StartTime, ssf.Multiplier)
+    end
+
+    local ssfsToAdd = {}
+    ssfsToAdd[#svs] = nil
+
+    for i, sv in ipairs(svs) do
+        ssfsToAdd[i] = utils.CreateScrollSpeedFactor(sv.StartTime, sv.Multiplier)
+    end
+
+    actions.PerformBatch({
+        utils.CreateEditorAction(action_type.RemoveScrollVelocityBatch, svs),
+        utils.CreateEditorAction(action_type.AddScrollVelocityBatch, svsToAdd),
+        utils.CreateEditorAction(action_type.RemoveScrollSpeedFactorBatch, ssfs),
+        utils.CreateEditorAction(action_type.AddScrollSpeedFactorBatch, ssfsToAdd),
     })
 end
 
