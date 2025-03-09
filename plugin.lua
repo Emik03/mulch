@@ -363,9 +363,22 @@ function perSV(from, to, op, ease, amp, period, count, custom, ssf)
     local offsets = uniqueSelectedNoteOffsets()
     local svs = getSVsBetweenOffsets(offsets[1], offsets[#offsets], ssf)
 
-    if not svs[2] then
-        print("The selected region must contain at least 2 SV points.")
-        return
+    if #svs < 2 then
+        if #offsets == 0 then
+            print("Please select notes before pressing this button.")
+            return
+        end
+
+        if offsets[1] == offsets[#offsets] then
+            print("The selected region cannot be a single instant in time.")
+            return
+        end
+
+        svs = {
+            utils.CreateScrollVelocity(offsets[1], 1),
+            utils.CreateScrollVelocity(offsets[#offsets], 1),
+            these_svs_are_not_real = true
+        }
     end
 
     ease = fulleasename(get("type", 0), direction)
@@ -413,6 +426,11 @@ function perSV(from, to, op, ease, amp, period, count, custom, ssf)
             final.StartTime,
             final.Multiplier
         )
+    end
+
+    if svs.these_svs_are_not_real then
+        -- If we remove SVs that didn't actually exist, it adds them without a way to undo them.
+        svs = {}
     end
 
     actions.PerformBatch({
