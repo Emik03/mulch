@@ -95,19 +95,19 @@ function draw()
     imgui.BeginTabBar("mode", imgui_tab_bar_flags.NoTooltip)
 
     if imgui.BeginTabItem("simple") then
-    	imgui.EndTabItem()
-    	advanced = false
+        imgui.EndTabItem()
+        advanced = false
         mulchmax = false
     end
 
     if imgui.BeginTabItem("advanced") then
-    	imgui.EndTabItem()
-    	advanced = true
+        imgui.EndTabItem()
+        advanced = true
         mulchmax = false
     end
 
     if imgui.BeginTabItem("mulchmax") then
-    	imgui.EndTabItem()
+        imgui.EndTabItem()
         mulchmax = true
     end
 
@@ -121,7 +121,7 @@ function draw()
                 function()
                     from, to = to, from
                 end,
-                { },
+                {},
                 "Swaps the parameters for the 'from' and 'to' values."
             )
 
@@ -179,7 +179,7 @@ function draw()
                 imgui.PushStyleColor(imgui_col.Text, lastCustomError and red or green)
                 imgui.TextWrapped(lastCustomError or "function is valid")
                 imgui.PopStyleColor()
-                _, custom = imgui.InputTextMultiline("", custom, 10000, {240, 70})
+                _, custom = imgui.InputTextMultiline("", custom, 10000, { 240, 70 })
             end
 
             imgui.Separator()
@@ -200,7 +200,7 @@ function draw()
                 "swap sv/ssf",
                 config["swap sv/ssf"],
                 swapSVandSSF,
-                { },
+                {},
                 "Converts SVs into SSFs, and vice versa."
             )
 
@@ -310,8 +310,10 @@ function section(from, to, op, amp, period, ease, custom, ssf)
     end
 
     actions.PerformBatch({
-        utils.CreateEditorAction(ternary(ssf, action_type.RemoveScrollSpeedFactorBatch, action_type.RemoveScrollVelocityBatch), svs),
-        utils.CreateEditorAction(ternary(ssf, action_type.AddScrollSpeedFactorBatch, action_type.AddScrollVelocityBatch), svsToAdd)
+        utils.CreateEditorAction(
+            ternary(ssf, action_type.RemoveScrollSpeedFactorBatch, action_type.RemoveScrollVelocityBatch), svs),
+        utils.CreateEditorAction(ternary(ssf, action_type.AddScrollSpeedFactorBatch, action_type.AddScrollVelocityBatch),
+            svsToAdd)
     })
 end
 
@@ -347,8 +349,10 @@ function perNote(from, to, op, amp, period, ease, custom, ssf)
     end
 
     actions.PerformBatch({
-        utils.CreateEditorAction(ternary(ssf, action_type.RemoveScrollSpeedFactorBatch, action_type.RemoveScrollVelocityBatch), svs),
-        utils.CreateEditorAction(ternary(ssf, action_type.AddScrollSpeedFactorBatch, action_type.AddScrollVelocityBatch), svsToAdd)
+        utils.CreateEditorAction(
+            ternary(ssf, action_type.RemoveScrollSpeedFactorBatch, action_type.RemoveScrollVelocityBatch), svs),
+        utils.CreateEditorAction(ternary(ssf, action_type.AddScrollSpeedFactorBatch, action_type.AddScrollVelocityBatch),
+            svsToAdd)
     })
 end
 
@@ -434,8 +438,10 @@ function perSV(from, to, op, ease, amp, period, count, custom, ssf)
     end
 
     actions.PerformBatch({
-        utils.CreateEditorAction(ternary(ssf, action_type.RemoveScrollSpeedFactorBatch, action_type.RemoveScrollVelocityBatch), svs),
-        utils.CreateEditorAction(ternary(ssf, action_type.AddScrollSpeedFactorBatch, action_type.AddScrollVelocityBatch), svsToAdd)
+        utils.CreateEditorAction(
+            ternary(ssf, action_type.RemoveScrollSpeedFactorBatch, action_type.RemoveScrollVelocityBatch), svs),
+        utils.CreateEditorAction(ternary(ssf, action_type.AddScrollSpeedFactorBatch, action_type.AddScrollVelocityBatch),
+            svsToAdd)
     })
 end
 
@@ -619,7 +625,7 @@ function fullClipboard(field, message, inclusive, min, max)
     local clipboard = ""
 
     if first and (inclusive == 0 or ((inclusive == 1) ==
-        (first.position >= min and first.position <= max))) then
+            (first.position >= min and first.position <= max))) then
         clipboard = first[field]
 
         if field == "time" then
@@ -642,7 +648,7 @@ function fullClipboard(field, message, inclusive, min, max)
             local next = lastSelectables[i]
 
             if next and (inclusive == 0 or ((inclusive == 1) ==
-                (next.position >= min and next.position <= max))) then
+                    (next.position >= min and next.position <= max))) then
                 clipboard = clipboard .. separator .. next[field]
 
                 if field == "time" then
@@ -1109,7 +1115,7 @@ function ShowNoteInfo(show)
         for _, v in ipairs(lastSelectables) do
             if v and
                 (inclusive == 0 or ((inclusive == 1) ==
-                (v.position >= min and v.position <= max))) then
+                    (v.position >= min and v.position <= max))) then
                 if imgui.Selectable(v.string) then
                     imgui.SetClipboardText(v.position)
                     print("Copied '" .. v.position .. "' to clipboard.")
@@ -1121,7 +1127,6 @@ function ShowNoteInfo(show)
                     print("Copied '" .. v.string .. "' to clipboard.")
                 end
             end
-
         end
     else
         lastSelectables = {}
@@ -1143,7 +1148,7 @@ function ShowNoteInfo(show)
             lastSelectables[i * 2 - 1] = start
 
             if (inclusive == 0 or ((inclusive == 1) ==
-                (position >= min and position <= max))) then
+                    (position >= min and position <= max))) then
                 if imgui.Selectable(start.string) then
                     imgui.SetClipboardText(position)
                     print("Copied '" .. position .. "' to clipboard.")
@@ -1175,7 +1180,7 @@ function ShowNoteInfo(show)
                 lastSelectables[i * 2] = ending
 
                 if (inclusive == 0 or ((inclusive == 1) ==
-                    (position >= min and position <= max))) then
+                        (position >= min and position <= max))) then
                     if imgui.Selectable(ending.string) then
                         imgui.SetClipboardText(endPosition)
                         print("Copied '" .. endPosition .. "' to clipboard.")
