@@ -171,7 +171,8 @@ function draw()
                     "$b = begin: 'from' parameter\n" ..
                     "$c = change: 'to' - 'from'\n" ..
                     "$d = duration: always 1\n" ..
-                    "$v = velocity: current SV multiplier"
+                    "$v = velocity: current multiplier\n" ..
+                    "$V = other type of velocity point"
                 )
 
                 local green = rgb("#50FA7B")
@@ -1778,6 +1779,9 @@ function easings()
                     :gsub("$c", c)
                     :gsub("$d", d)
                     :gsub("$v", v)
+                    :gsub("$V",
+                        get("ssf", false) and ((map.GetScrollSpeedFactorAt(v) or {}).Multiplier or 0) or
+                        ((map.GetScrollVelocityAt(v) or {}).Multiplier or 0))
                 )
 
                 if x == "" then
